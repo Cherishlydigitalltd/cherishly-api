@@ -1,16 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>@yield('subject', 'Cherishly')</title>
   <style>
     /* Reset */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body,
+    table,
+    td,
+    a {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+
+    table,
+    td {
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+
+    img {
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+      outline: none;
+      text-decoration: none;
+    }
 
     body {
       font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -229,20 +252,33 @@
 
     /* Responsive */
     @media only screen and (max-width: 600px) {
-      .email-body { padding: 28px 24px; }
-      .email-footer { padding: 24px 24px 20px; }
-      .otp-code { font-size: 34px; }
-      .email-greeting { font-size: 20px; }
+      .email-body {
+        padding: 28px 24px;
+      }
+
+      .email-footer {
+        padding: 24px 24px 20px;
+      }
+
+      .otp-code {
+        font-size: 34px;
+      }
+
+      .email-greeting {
+        font-size: 20px;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="email-wrapper">
     <div class="email-container">
 
       <!-- Logo Header -->
       <div class="email-header">
-        <img src="https://assets.cherishlyng.com/uploads/general/cherishly-1-original__1__20260801_143235_128f1e3e.png" alt="Cherishly" />
+        <img src="https://assets.cherishlyng.com/uploads/general/cherishly-1-original__1__20260801_143235_128f1e3e.png"
+          alt="Cherishly" />
       </div>
 
       <!-- Card -->
@@ -258,13 +294,13 @@
           <!-- Social Links -->
           <div class="social-links">
             <a href="https://facebook.com/cherishly" class="social-link" target="_blank">
-              <img src="https://asset.cherishlyng.com/email/icons/facebook.png" alt="Facebook" />
+              <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" />
             </a>
             <a href="https://twitter.com/cherishly" class="social-link" target="_blank">
-              <img src="https://asset.cherishlyng.com/email/icons/twitter.png" alt="Twitter" />
+              <img src="https://cdn-icons-png.flaticon.com/512/733/733579.png" alt="Twitter" />
             </a>
             <a href="https://instagram.com/cherishly" class="social-link" target="_blank">
-              <img src="https://asset.cherishlyng.com/email/icons/instagram.png" alt="Instagram" />
+              <img src="https://cdn-icons-png.flaticon.com/512/733/733558.png" alt="Instagram" />
             </a>
           </div>
 
@@ -279,7 +315,7 @@
 
           <!-- Address -->
           <p class="footer-address">
-            Cherishly Technologies Ltd.<br/>
+            Cherishly Technologies Ltd.<br />
             Lagos, Nigeria
           </p>
 
@@ -290,7 +326,7 @@
 
           <!-- Unsubscribe -->
           <p class="footer-unsubscribe">
-            You received this email because you have an account on Cherishly.<br/>
+            You received this email because you have an account on Cherishly.<br />
             <a href="https://cherishlyng.com/unsubscribe">Unsubscribe</a> from these emails.
           </p>
 
@@ -300,4 +336,5 @@
     </div>
   </div>
 </body>
+
 </html>
