@@ -121,7 +121,7 @@ class MonetaryService
                 'name' => $data['donor_name'],
                 'amount' => $data['amount'],
                 'reference' => $reference,
-                'callback_url' => config('app.url') . '/payment/callback',
+                'callback_url' => config('app.frontend_url') . '/payment/callback',
                 'metadata' => [
                     'contribution_id' => $contribution->id,
                     'gift_id' => $gift->id,
