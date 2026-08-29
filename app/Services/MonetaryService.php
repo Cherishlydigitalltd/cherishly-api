@@ -79,6 +79,14 @@ class MonetaryService
     {
         return MonetaryGift::where('share_token', $token)
             ->where('is_active', true)
+            ->with([
+                'user:id,first_name,last_name',
+                'successfulContributions' => function ($q) {
+                    $q->select(['id', 'monetary_gift_id', 'donor_name', 'amount', 'is_anonymous', 'created_at'])
+                        ->latest()
+                        ->limit(10);
+                }
+            ])
             ->first();
     }
 
