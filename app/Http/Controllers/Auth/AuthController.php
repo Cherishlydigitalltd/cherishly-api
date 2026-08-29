@@ -18,7 +18,8 @@ class AuthController extends Controller
 {
     public function __construct(
         private AuthService $authService
-    ) {}
+    ) {
+    }
 
     /**
      * POST /api/auth/register
@@ -39,7 +40,7 @@ class AuthController extends Controller
      */
     public function verifyEmail(VerifyOtpRequest $request): JsonResponse
     {
-        $user   = \App\Models\User::where('email', $request->email)->firstOrFail();
+        $user = \App\Models\User::where('email', $request->email)->firstOrFail();
         $result = $this->authService->verifyEmail($user, $request->otp);
 
         if (!$result['success']) {
@@ -48,7 +49,7 @@ class AuthController extends Controller
 
         return ApiResponse::success('Email verified successfully.', [
             'token' => $result['token'],
-            'user'  => $result['user'],
+            'user' => $result['user'],
         ]);
     }
 
@@ -63,7 +64,7 @@ class AuthController extends Controller
             if (!empty($result['requires_verify'])) {
                 return ApiResponse::error($result['message'], [
                     'requires_verify' => true,
-                    'email'           => $result['email'],
+                    'email' => $result['email'],
                 ], 403);
             }
             return ApiResponse::error($result['message'], null, 401);
@@ -71,7 +72,7 @@ class AuthController extends Controller
 
         return ApiResponse::success('Login successful.', [
             'token' => $result['token'],
-            'user'  => $result['user'],
+            'user' => $result['user'],
         ]);
     }
 
@@ -82,7 +83,8 @@ class AuthController extends Controller
     {
         $result = $this->authService->forgotPassword($request->email);
 
-        return ApiResponse::success($result['message'], 
+        return ApiResponse::success(
+            $result['message'],
             isset($result['email']) ? ['email' => $result['email']] : null
         );
     }
@@ -108,11 +110,24 @@ class AuthController extends Controller
      */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
-        $user   = $request->user();
+        // Find the token in personal_access_tokens
+        $tokenRecord = \Laravel\Sanctum\PersonalAccessToken::findToken($request->reset_token);
+
+        if (!$tokenRecord) {
+            return ApiResponse::error('Invalid or expired reset token.', 422);
+        }
+
+        $user = $tokenRecord->tokenable;
+
+        if (!$user) {
+            return ApiResponse::error('User not found.', 404);
+        }
+
         $result = $this->authService->resetPassword($user, $request->password);
 
         return ApiResponse::success($result['message']);
     }
+
 
     /**
      * POST /api/auth/resend-otp

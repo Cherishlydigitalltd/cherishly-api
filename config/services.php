@@ -38,5 +38,10 @@ return [
         'url' => env('ASSET_URL', 'https://assets.cherishlyng.com'),
         'key' => env('ASSET_API_KEY'),
     ],
+    'gateway' => [
+        'url' => env('GATEWAY_URL'),
+        'api_key' => env('GATEWAY_API_KEY'),
+        'webhook_secret' => env('GATEWAY_WEBHOOK_SECRET'),
+    ],
 
 ];

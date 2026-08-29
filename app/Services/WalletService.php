@@ -6,9 +6,15 @@ use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WalletService
 {
+    public function __construct(
+        private GatewayService $gatewayService
+    ) {
+    }
+
     /* ── Get wallet ── */
 
     public function getWallet(User $user): Wallet
@@ -42,21 +48,9 @@ class WalletService
     {
         $wallet = $this->getWallet($user);
 
-        $totalCredits = $wallet->transactions()
-            ->where('type', 'credit')
-            ->where('status', 'successful')
-            ->sum('amount');
-
-        $totalDebits = $wallet->transactions()
-            ->where('type', 'debit')
-            ->where('status', 'successful')
-            ->sum('amount');
-
         return [
             'balance' => $wallet->balance,
             'total_received' => $wallet->total_received,
-            'total_credited' => $totalCredits,
-            'total_debited' => $totalDebits,
             'bank_details' => [
                 'bank_name' => $wallet->bank_name,
                 'account_number' => $wallet->account_number,
@@ -68,18 +62,33 @@ class WalletService
 
     /* ── Update bank details ── */
 
-    public function updateBankDetails(User $user, array $data): Wallet
+    public function updateBankDetails(User $user, array $data): array
     {
-        $wallet = $this->getWallet($user);
+        // Resolve account name from gateway
+        $resolved = $this->gatewayService->resolveBankAccount(
+            $data['account_number'],
+            $data['bank_code']
+        );
 
+        if (!$resolved['success']) {
+            return [
+                'success' => false,
+                'message' => $resolved['message'],
+            ];
+        }
+
+        $wallet = $this->getWallet($user);
         $wallet->update([
             'bank_name' => $data['bank_name'],
             'account_number' => $data['account_number'],
-            'account_name' => $data['account_name'],
+            'account_name' => $resolved['account_name'],
             'bank_code' => $data['bank_code'],
         ]);
 
-        return $wallet->fresh();
+        return [
+            'success' => true,
+            'wallet' => $wallet->fresh(),
+        ];
     }
 
     /* ── Withdraw ── */
@@ -88,15 +97,16 @@ class WalletService
     {
         $wallet = $this->getWallet($user);
 
+        // Validate minimum withdrawal
         $minWithdrawal = (float) setting('min_withdrawal', 1000);
-
         if ($amount < $minWithdrawal) {
             return [
                 'success' => false,
-                'message' => "Minimum withdrawal amount is ₦" . number_format($minWithdrawal, 2),
+                'message' => 'Minimum withdrawal amount is ₦' . number_format($minWithdrawal, 2),
             ];
         }
 
+        // Validate sufficient balance
         if ($wallet->balance < $amount) {
             return [
                 'success' => false,
@@ -104,29 +114,58 @@ class WalletService
             ];
         }
 
-        if (!$wallet->account_number) {
+        // Validate bank details exist
+        if (!$wallet->account_number || !$wallet->bank_code) {
             return [
                 'success' => false,
                 'message' => 'Please add your bank details before withdrawing.',
             ];
         }
 
-        return DB::transaction(function () use ($wallet, $amount) {
+        return DB::transaction(function () use ($wallet, $user, $amount) {
             $reference = 'WD-' . strtoupper(uniqid());
 
+            // Deduct balance immediately (hold funds)
             $wallet->decrement('balance', $amount);
 
-            $wallet->transactions()->create([
-                'user_id' => $wallet->user_id,
+            // Create pending transaction
+            $transaction = $wallet->transactions()->create([
+                'user_id' => $user->id,
                 'type' => 'debit',
                 'amount' => $amount,
-                'description' => 'Withdrawal to ' . $wallet->bank_name,
+                'description' => 'Withdrawal to ' . $wallet->bank_name . ' (' . $wallet->account_number . ')',
                 'reference' => $reference,
                 'status' => 'pending',
             ]);
 
-            // TODO: Call .NET Core gateway to initiate bank transfer
-            // GatewayService::withdraw($wallet, $amount, $reference);
+            // Call gateway to initiate bank transfer
+            $result = $this->gatewayService->initiateWithdrawal([
+                'reference' => $reference,
+                'amount' => $amount,
+                'account_number' => $wallet->account_number,
+                'account_name' => $wallet->account_name,
+                'bank_code' => $wallet->bank_code,
+                'bank_name' => $wallet->bank_name,
+                'narration' => 'Cherishly wallet withdrawal',
+            ]);
+
+            // Gateway failed — reverse the deduction
+            if (!$result['success']) {
+                $wallet->increment('balance', $amount);
+                $transaction->update(['status' => 'failed']);
+
+                Log::error('Withdrawal gateway failed', [
+                    'reference' => $reference,
+                    'user_id' => $user->id,
+                    'amount' => $amount,
+                    'error' => $result['message'],
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => $result['message'],
+                ];
+            }
 
             return [
                 'success' => true,
@@ -135,5 +174,40 @@ class WalletService
                 'amount' => $amount,
             ];
         });
+    }
+
+    /* ── Confirm withdrawal (called by webhook) ── */
+
+    public function confirmWithdrawal(string $reference, string $status): bool
+    {
+        return DB::transaction(function () use ($reference, $status) {
+            $transaction = \App\Models\Transaction::where('reference', $reference)
+                ->where('type', 'debit')
+                ->first();
+
+            if (!$transaction)
+                return false;
+
+            if ($status === 'failed') {
+                // Refund the balance
+                $transaction->wallet->increment('balance', $transaction->amount);
+            }
+
+            $transaction->update(['status' => $status]);
+
+            Log::info('Withdrawal confirmed', [
+                'reference' => $reference,
+                'status' => $status,
+            ]);
+
+            return true;
+        });
+    }
+
+    /* ── Get banks list ── */
+
+    public function getBanks(): array
+    {
+        return $this->gatewayService->getBanks();
     }
 }
