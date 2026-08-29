@@ -5,6 +5,7 @@ use App\Http\Controllers\GiftRegistryController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MemoryWallController;
 use App\Http\Controllers\MonetaryController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SecretSantaController;
 use App\Http\Controllers\WalletController;
@@ -41,6 +42,8 @@ Route::prefix('auth')->group(function () {
 | Public Routes (no auth)
 |--------------------------------------------------------------------------
 */
+Route::get('payment/verify/{reference}', [PaymentController::class, 'verify']);
+
 Route::prefix('public')->group(function () {
     Route::get('registries/{token}', [GiftRegistryController::class, 'publicShow']);
     Route::post('registries/{token}/gifts/{gift}/contribute', [GiftRegistryController::class, 'contribute']);
