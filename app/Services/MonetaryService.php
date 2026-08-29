@@ -84,10 +84,15 @@ class MonetaryService
 
     /* ── Contribute ── */
 
-    public function contribute(MonetaryGift $gift, array $data): MonetaryContribution
+    public function contribute(MonetaryGift $gift, array $data): array
     {
         return DB::transaction(function () use ($gift, $data) {
-            return MonetaryContribution::create([
+
+            // Generate unique reference
+            $reference = 'CHR_MON_' . $gift->id . '_' . uniqid();
+
+            // Create pending contribution
+            $contribution = MonetaryContribution::create([
                 'monetary_gift_id' => $gift->id,
                 'donor_name' => $data['donor_name'],
                 'donor_email' => $data['donor_email'],
@@ -96,10 +101,40 @@ class MonetaryService
                 'bvn' => $data['bvn'] ?? null,
                 'payment_method' => $data['payment_method'],
                 'payment_status' => 'pending',
+                'payment_reference' => $reference,
                 'is_anonymous' => $data['is_anonymous'] ?? false,
             ]);
+
+            // Initialize payment via gateway
+            $gateway = app(\App\Services\GatewayService::class);
+
+            $payment = $gateway->initializePayment([
+                'email' => $data['donor_email'],
+                'name' => $data['donor_name'],
+                'amount' => $data['amount'],
+                'reference' => $reference,
+                'callback_url' => config('app.url') . '/payment/callback',
+                'metadata' => [
+                    'contribution_id' => $contribution->id,
+                    'gift_id' => $gift->id,
+                    'type' => 'monetary_contribution',
+                ],
+            ]);
+
+            if (!$payment['success']) {
+                throw new \Exception($payment['message'] ?? 'Payment initialization failed.');
+            }
+
+            return [
+                'contribution_id' => $contribution->id,
+                'amount' => $contribution->amount,
+                'payment_method' => $contribution->payment_method,
+                'reference' => $reference,
+                'payment_url' => $payment['payment_url'],
+            ];
         });
     }
+
 
     /* ── Confirm payment ── */
 

@@ -15,7 +15,8 @@ class MonetaryController extends Controller
 {
     public function __construct(
         private MonetaryService $monetaryService
-    ) {}
+    ) {
+    }
 
     /**
      * GET /api/monetary
@@ -110,21 +111,18 @@ class MonetaryController extends Controller
             return ApiResponse::notFound('Monetary gift not found or is no longer active.');
         }
 
-        // BVN required for amounts > 5,000,000
         if ($request->amount > 5000000 && empty($request->bvn)) {
             return ApiResponse::validationError([
                 'bvn' => ['BVN is required for contributions above ₦5,000,000.']
             ]);
         }
 
-        $contribution = $this->monetaryService->contribute($gift, $request->validated());
-
-        return ApiResponse::success('Contribution initiated. Complete payment to confirm.', [
-            'contribution_id' => $contribution->id,
-            'amount'          => $contribution->amount,
-            'payment_method'  => $contribution->payment_method,
-            'reference'       => $contribution->payment_reference,
-        ], 201);
+        try {
+            $result = $this->monetaryService->contribute($gift, $request->validated());
+            return ApiResponse::success('Contribution initiated. Complete payment to confirm.', $result, 201);
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), null, 500);
+        }
     }
 
     /* ── Helper ── */

@@ -41,7 +41,8 @@ return [
     'gateway' => [
         'url' => env('GATEWAY_URL'),
         'api_key' => env('GATEWAY_API_KEY'),
-        'webhook_secret' => env('GATEWAY_WEBHOOK_SECRET'),
+        'client_id' => env('GATEWAY_CLIENT_ID', 'CHERISHLY_PROD_001'),
+        'callback_url' => env('GATEWAY_CALLBACK_URL', 'https://cherishlyng.com/payment/callback'),
+        'webhook_secret' => env('GATEWAY_WEBHOOK_SECRET', ''),
     ],
-
 ];
