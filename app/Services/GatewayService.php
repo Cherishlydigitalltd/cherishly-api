@@ -29,13 +29,13 @@ class GatewayService
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ])->post("{$this->baseUrl}/api/gateway/initialize", [
-                        'client_id' => $this->clientId,
+                        'clientId' => $this->clientId,
                         'email' => $data['email'],
                         'name' => $data['name'] ?? null,
                         'amount' => $data['amount'],
                         'currency' => 'NGN',
                         'reference' => $data['reference'],
-                        'callback_url' => $data['callback_url'] ?? config('services.gateway.callback_url'),
+                        'callbackUrl' => $data['callback_url'] ?? config('services.gateway.callback_url'),
                         'metadata' => $data['metadata'] ?? [],
                     ]);
 
