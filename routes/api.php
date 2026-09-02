@@ -148,4 +148,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{wall}/wishes/{wish}', [MemoryWallController::class, 'deleteWish']);
     });
 
+
+    
 });
