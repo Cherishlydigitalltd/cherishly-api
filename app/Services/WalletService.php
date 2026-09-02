@@ -56,6 +56,7 @@ class WalletService
                 'account_number' => $wallet->account_number,
                 'account_name' => $wallet->account_name,
                 'bank_code' => $wallet->bank_code,
+                'bvn_verified' => $wallet->bvn_verified ?? false,
             ],
         ];
     }
@@ -64,25 +65,49 @@ class WalletService
 
     public function updateBankDetails(User $user, array $data): array
     {
-        // Resolve account name from gateway
+        // 1. Resolve account name from gateway
         $resolved = $this->gatewayService->resolveBankAccount(
             $data['account_number'],
             $data['bank_code']
         );
 
         if (!$resolved['success']) {
+            return ['success' => false, 'message' => $resolved['message']];
+        }
+
+        $resolvedName = strtoupper($resolved['account_name']);
+
+        // 2. Name match check — resolved name must contain user's first or last name
+        $firstName = strtoupper($user->first_name);
+        $lastName = strtoupper($user->last_name);
+
+        $nameMatches = str_contains($resolvedName, $firstName)
+            || str_contains($resolvedName, $lastName);
+
+        if (!$nameMatches) {
+            Log::warning('Bank account name mismatch', [
+                'user_id' => $user->id,
+                'resolved_name' => $resolvedName,
+                'user_name' => "$firstName $lastName",
+            ]);
+
             return [
                 'success' => false,
-                'message' => $resolved['message'],
+                'message' => 'The account name does not match your registered name. Please use a bank account in your name.',
             ];
         }
 
+        // 3. Store BVN encrypted (verification to be done via KYC provider later)
         $wallet = $this->getWallet($user);
         $wallet->update([
             'bank_name' => $data['bank_name'],
             'account_number' => $data['account_number'],
-            'account_name' => $resolved['account_name'],
+            'account_name' => $resolvedName,
             'bank_code' => $data['bank_code'],
+            'bvn_verified' => false, // will be updated when KYC provider verifies
+            'bvn_encrypted' => !empty($data['bvn'])
+                ? \Illuminate\Support\Facades\Crypt::encryptString($data['bvn'])
+                : null,
         ]);
 
         return [
@@ -98,21 +123,23 @@ class WalletService
         $wallet = $this->getWallet($user);
 
         // Validate minimum withdrawal
-        /*     $minWithdrawal = (float) setting('min_withdrawal', 1000);
-            if ($amount < $minWithdrawal) {
-                return [
-                    'success' => false,
-                    'message' => 'Minimum withdrawal amount is ₦' . number_format($minWithdrawal, 2),
-                ];
-            } */
+        $minWithdrawal = (float) setting('min_withdrawal', 1000);
+        if ($amount < $minWithdrawal) {
+            return [
+                'success' => false,
+                'message' => 'Minimum withdrawal amount is ₦' . number_format($minWithdrawal, 2),
+            ];
+        }
 
         // Validate sufficient balance
         if ($wallet->balance < $amount) {
-            return [
-                'success' => false,
-                'message' => 'Insufficient balance.',
-            ];
+            return ['success' => false, 'message' => 'Insufficient balance.'];
         }
+
+        // Daily withdrawal limit
+        $limitCheck = $this->checkDailyWithdrawalLimit($wallet, $amount);
+        if (!$limitCheck['success'])
+            return $limitCheck;
 
         // Validate bank details exist
         if (!$wallet->account_number || !$wallet->bank_code) {
@@ -161,10 +188,7 @@ class WalletService
                     'error' => $result['message'],
                 ]);
 
-                return [
-                    'success' => false,
-                    'message' => $result['message'],
-                ];
+                return ['success' => false, 'message' => $result['message']];
             }
 
             return [
@@ -189,7 +213,6 @@ class WalletService
                 return false;
 
             if ($status === 'failed') {
-                // Refund the balance
                 $transaction->wallet->increment('balance', $transaction->amount);
             }
 
@@ -216,4 +239,41 @@ class WalletService
         return $this->gatewayService->resolveBankAccount($accountNumber, $bankCode);
     }
 
+    /* ── Get decrypted BVN ── */
+
+    public function getBvn(User $user): ?string
+    {
+        $wallet = $this->getWallet($user);
+        if (!$wallet->bvn_encrypted)
+            return null;
+
+        try {
+            return \Illuminate\Support\Facades\Crypt::decryptString($wallet->bvn_encrypted);
+        } catch (\Exception $e) {
+            Log::error('BVN decryption failed', ['user_id' => $user->id]);
+            return null;
+        }
+    }
+
+    /* ── Daily withdrawal limit ── */
+
+    private function checkDailyWithdrawalLimit(Wallet $wallet, float $amount): array
+    {
+        $dailyLimit = (float) setting('daily_withdrawal_limit', 500000);
+
+        $todayTotal = $wallet->transactions()
+            ->where('type', 'debit')
+            ->whereIn('status', ['pending', 'successful'])
+            ->whereDate('created_at', today())
+            ->sum('amount');
+
+        if (($todayTotal + $amount) > $dailyLimit) {
+            return [
+                'success' => false,
+                'message' => 'Daily withdrawal limit of ₦' . number_format($dailyLimit, 2) . ' exceeded.',
+            ];
+        }
+
+        return ['success' => true];
+    }
 }

@@ -19,6 +19,43 @@ class WebhookController extends Controller
     ) {
     }
 
+    // Paystack IP whitelist
+    private function verifyPaystackIp(Request $request): bool
+    {
+        // Paystack's IP addresses
+        $paystackIps = [
+            '52.31.139.75',
+            '52.49.173.169',
+            '52.214.14.220',
+        ];
+
+        $requestIp = $request->ip();
+
+        // Skip IP check in local environment
+        if (app()->isLocal())
+            return true;
+
+        return in_array($requestIp, $paystackIps);
+    }
+
+    private function verifySignature(Request $request): bool
+    {
+        $secret = config('services.gateway.webhook_secret');
+        $signature = $request->header('X-Webhook-Signature');
+
+        // Allow if no secret configured (dev mode)
+        if (!$secret) {
+            return !app()->isProduction();
+        }
+
+        if (!$signature)
+            return false;
+
+        $expected = hash_hmac('sha256', $request->getContent(), $secret);
+        return hash_equals($expected, $signature);
+    }
+
+
     public function payment(Request $request): JsonResponse
     {
         if (!$this->verifySignature($request)) {
@@ -113,19 +150,5 @@ class WebhookController extends Controller
         }
     }
 
-    private function verifySignature(Request $request): bool
-    {
-         return true; // temporary — remove after testing
-        $secret = config('services.gateway.webhook_secret');
-        $signature = $request->header('X-Webhook-Signature');
 
-        if (!$secret || !$signature) {
-            return !app()->isProduction();
-        }
-
-        $expected = hash_hmac('sha256', $request->getContent(), $secret);
-        return hash_equals($expected, $signature);
-
-        
-    }
 }

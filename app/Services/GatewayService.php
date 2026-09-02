@@ -27,7 +27,7 @@ class GatewayService
                 'X-API-Key' => $this->apiKey,
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-            ])->post("{$this->baseUrl}/api/gateway/initialize", [
+            ])->post("{$this->baseUrl}/api/Gateway/initialize", [
                         'clientId' => $this->clientId,
                         'email' => $data['email'],
                         'name' => $data['name'] ?? null,
@@ -71,7 +71,7 @@ class GatewayService
             $response = Http::withHeaders([
                 'X-API-Key' => $this->apiKey,
                 'Accept' => 'application/json',
-            ])->get("{$this->baseUrl}/api/gateway/verify/{$reference}");
+            ])->get("{$this->baseUrl}/api/Gateway/verify/{$reference}");
 
             if (!$response->successful()) {
                 return ['success' => false, 'message' => 'Could not verify payment.'];
@@ -139,22 +139,30 @@ class GatewayService
         }
     }
 
-    /* ── Verify BVN ── */
+    /* ── Match BVN against bank account (synchronous) ── */
 
-    public function verifyBvn(string $bvn, string $firstName, string $lastName): array
+    public function verifyBvn(string $bvn, string $firstName, string $lastName, string $accountNumber = '', string $bankCode = ''): array
     {
         try {
+            // Use match_bvn endpoint — synchronous, instant
             $response = Http::withHeaders([
                 'X-API-Key' => $this->apiKey,
-            ])->post("{$this->baseUrl}/api/kyc/bvn/verify", [
+                'Accept' => 'application/json',
+            ])->get("{$this->baseUrl}/api/Gateway/bvn/match", [
+                        'account_number' => $accountNumber,
+                        'bank_code' => $bankCode,
                         'bvn' => $bvn,
-                        'first_name' => $firstName,
-                        'last_name' => $lastName,
                     ]);
 
+            if (!$response->successful()) {
+                return ['success' => false, 'message' => 'BVN verification failed.'];
+            }
+
+            $matched = $response->json('data.matched');
+
             return [
-                'success' => $response->successful() && $response->json('data.verified'),
-                'message' => $response->json('message') ?? 'BVN verification failed.',
+                'success' => $matched === true,
+                'message' => $matched ? 'BVN verified successfully.' : 'BVN does not match this account.',
             ];
 
         } catch (\Exception $e) {
@@ -171,7 +179,7 @@ class GatewayService
             $response = Http::withHeaders([
                 'X-API-Key' => $this->apiKey,
                 'Accept' => 'application/json',
-            ])->get("{$this->baseUrl}/api/gateway/banks/resolve", [
+            ])->get("{$this->baseUrl}/api/Gateway/banks/resolve", [
                         'account_number' => $accountNumber,
                         'bank_code' => $bankCode,
                     ]);
@@ -199,7 +207,7 @@ class GatewayService
             $response = Http::withHeaders([
                 'X-API-Key' => $this->apiKey,
                 'Accept' => 'application/json',
-            ])->get("{$this->baseUrl}/api/gateway/banks");
+            ])->get("{$this->baseUrl}/api/Gateway/banks");
 
             return $response->successful()
                 ? $response->json('data', [])

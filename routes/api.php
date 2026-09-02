@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Webhook Routes (no auth — verified by signature)
+| Webhook Routes (no auth — verified by signature + IP)
 |--------------------------------------------------------------------------
 */
 Route::prefix('webhooks')->group(function () {
@@ -28,13 +28,13 @@ Route::prefix('webhooks')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::prefix('auth')->group(function () {
-    Route::post('register', [AuthController::class, 'register']);
-    Route::post('verify-email', [AuthController::class, 'verifyEmail']);
-    Route::post('login', [AuthController::class, 'login']);
-    Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
-    Route::post('verify-identity', [AuthController::class, 'verifyIdentity']);
+    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:otp');
+    Route::post('verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:otp');
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:otp');
+    Route::post('verify-identity', [AuthController::class, 'verifyIdentity'])->middleware('throttle:otp');
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
-    Route::post('resend-otp', [AuthController::class, 'resendOtp']);
+    Route::post('resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:otp');
 });
 
 /*
@@ -62,7 +62,7 @@ Route::prefix('public')->group(function () {
 | Protected Routes
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
     // Auth
     Route::get('auth/me', [AuthController::class, 'me']);
@@ -80,9 +80,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('wallet/transactions', [WalletController::class, 'transactions']);
     Route::get('wallet/banks', [WalletController::class, 'banks']);
     Route::get('wallet/resolve-account', [WalletController::class, 'resolveAccount']);
-    Route::get('wallet/resolve-account1', [WalletController::class, 'resolveAccount']);
     Route::put('wallet/bank-details', [WalletController::class, 'updateBankDetails']);
-    Route::post('wallet/withdraw', [WalletController::class, 'withdraw']);
+    Route::post('wallet/withdraw', [WalletController::class, 'withdraw'])->middleware('throttle:withdraw');
 
     // Gift Registries
     Route::prefix('registries')->group(function () {
@@ -148,7 +147,5 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{wall}/wishes', [MemoryWallController::class, 'wishes']);
         Route::delete('/{wall}/wishes/{wish}', [MemoryWallController::class, 'deleteWish']);
     });
-
-
 
 });
