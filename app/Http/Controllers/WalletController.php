@@ -82,4 +82,25 @@ class WalletController extends Controller
         $banks = $this->walletService->getBanks();
         return ApiResponse::success('Banks retrieved.', $banks);
     }
+
+    public function resolveAccount(Request $request): JsonResponse
+    {
+        $request->validate([
+            'account_number' => ['required', 'string', 'size:10'],
+            'bank_code' => ['required', 'string'],
+        ]);
+
+        $result = $this->walletService->resolveAccount(
+            $request->account_number,
+            $request->bank_code
+        );
+
+        if (!$result['success']) {
+            return ApiResponse::error($result['message'], null, 422);
+        }
+
+        return ApiResponse::success('Account resolved.', [
+            'account_name' => $result['account_name'],
+        ]);
+    }
 }

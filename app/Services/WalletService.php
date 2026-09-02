@@ -210,4 +210,10 @@ class WalletService
     {
         return $this->gatewayService->getBanks();
     }
+
+    public function resolveAccount(string $accountNumber, string $bankCode): array
+    {
+        return $this->gatewayService->resolveBankAccount($accountNumber, $bankCode);
+    }
+
 }
