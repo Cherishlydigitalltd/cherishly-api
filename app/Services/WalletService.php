@@ -98,13 +98,13 @@ class WalletService
         $wallet = $this->getWallet($user);
 
         // Validate minimum withdrawal
-        $minWithdrawal = (float) setting('min_withdrawal', 1000);
-        if ($amount < $minWithdrawal) {
-            return [
-                'success' => false,
-                'message' => 'Minimum withdrawal amount is ₦' . number_format($minWithdrawal, 2),
-            ];
-        }
+        /*     $minWithdrawal = (float) setting('min_withdrawal', 1000);
+            if ($amount < $minWithdrawal) {
+                return [
+                    'success' => false,
+                    'message' => 'Minimum withdrawal amount is ₦' . number_format($minWithdrawal, 2),
+                ];
+            } */
 
         // Validate sufficient balance
         if ($wallet->balance < $amount) {
