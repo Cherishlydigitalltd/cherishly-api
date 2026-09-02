@@ -181,7 +181,7 @@ class GatewayService
 
             return [
                 'success' => true,
-                'account_name' => $response->json('data.account_name'),
+                'account_name' => $response->json('data.accountName'),
             ];
 
         } catch (\Exception $e) {
