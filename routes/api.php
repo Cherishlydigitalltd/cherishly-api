@@ -78,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Wallet
     Route::get('wallet', [WalletController::class, 'show']);
     Route::get('wallet/transactions', [WalletController::class, 'transactions']);
+    Route::get('wallet/banks', [WalletController::class, 'banks']);
     Route::put('wallet/bank-details', [WalletController::class, 'updateBankDetails']);
     Route::post('wallet/withdraw', [WalletController::class, 'withdraw']);
 

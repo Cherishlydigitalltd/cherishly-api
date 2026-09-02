@@ -22,7 +22,6 @@ class GatewayService
 
     public function initializePayment(array $data): array
     {
-        // data: email, name, amount, reference, callback_url, metadata
         try {
             $response = Http::withHeaders([
                 'X-API-Key' => $this->apiKey,
@@ -45,7 +44,6 @@ class GatewayService
                     'response' => $response->json(),
                     'data' => $data,
                 ]);
-
                 return [
                     'success' => false,
                     'message' => $response->json('statusMessage') ?? 'Gateway error. Please try again.',
@@ -61,10 +59,7 @@ class GatewayService
 
         } catch (\Exception $e) {
             Log::error('Gateway connection failed', ['error' => $e->getMessage()]);
-            return [
-                'success' => false,
-                'message' => 'Unable to connect to payment gateway. Please try again.',
-            ];
+            return ['success' => false, 'message' => 'Unable to connect to payment gateway. Please try again.'];
         }
     }
 
@@ -125,7 +120,6 @@ class GatewayService
                     'response' => $response->json(),
                     'data' => $data,
                 ]);
-
                 return [
                     'success' => false,
                     'message' => $response->json('message') ?? 'Gateway error. Please try again.',
@@ -140,10 +134,7 @@ class GatewayService
 
         } catch (\Exception $e) {
             Log::error('Gateway connection failed', ['error' => $e->getMessage()]);
-            return [
-                'success' => false,
-                'message' => 'Unable to connect to payment gateway. Please try again.',
-            ];
+            return ['success' => false, 'message' => 'Unable to connect to payment gateway. Please try again.'];
         }
     }
 
@@ -178,7 +169,8 @@ class GatewayService
         try {
             $response = Http::withHeaders([
                 'X-API-Key' => $this->apiKey,
-            ])->get("{$this->baseUrl}/api/banks/resolve", [
+                'Accept' => 'application/json',
+            ])->get("{$this->baseUrl}/api/gateway/banks/resolve", [
                         'account_number' => $accountNumber,
                         'bank_code' => $bankCode,
                     ]);
@@ -205,7 +197,8 @@ class GatewayService
         try {
             $response = Http::withHeaders([
                 'X-API-Key' => $this->apiKey,
-            ])->get("{$this->baseUrl}/api/banks");
+                'Accept' => 'application/json',
+            ])->get("{$this->baseUrl}/api/gateway/banks");
 
             return $response->successful()
                 ? $response->json('data', [])
