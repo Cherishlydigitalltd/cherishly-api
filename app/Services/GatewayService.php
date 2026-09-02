@@ -103,15 +103,16 @@ class GatewayService
                 'X-API-Key' => $this->apiKey,
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-            ])->post("{$this->baseUrl}/api/payouts/initiate", [
+            ])->post("{$this->baseUrl}/api/Payouts/initiate", [
+                        'clientId' => $this->clientId,
                         'reference' => $data['reference'],
                         'amount' => $data['amount'],
-                        'account_number' => $data['account_number'],
-                        'account_name' => $data['account_name'],
-                        'bank_code' => $data['bank_code'],
-                        'bank_name' => $data['bank_name'],
+                        'accountNumber' => $data['account_number'],
+                        'accountName' => $data['account_name'],
+                        'bankCode' => $data['bank_code'],
+                        'bankName' => $data['bank_name'],
                         'narration' => $data['narration'] ?? 'Cherishly wallet withdrawal',
-                        'callback_type' => 'withdrawal',
+                        'callbackType' => 'withdrawal',
                     ]);
 
             if (!$response->successful()) {
