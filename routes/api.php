@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('wallet/transactions', [WalletController::class, 'transactions']);
     Route::get('wallet/banks', [WalletController::class, 'banks']);
     Route::get('wallet/resolve-account', [WalletController::class, 'resolveAccount']);
+    Route::get('wallet/resolve-account1', [WalletController::class, 'resolveAccount']);
     Route::put('wallet/bank-details', [WalletController::class, 'updateBankDetails']);
     Route::post('wallet/withdraw', [WalletController::class, 'withdraw']);
 
@@ -149,5 +150,5 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
 
-    
+
 });
