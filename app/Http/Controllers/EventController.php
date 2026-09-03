@@ -9,9 +9,15 @@ use App\Services\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
 class EventController extends Controller
 {
-    public function __construct(private EventService $eventService) {}
+    use AuthorizesRequests;
+
+    public function __construct(private EventService $eventService)
+    {
+    }
 
     /* ── List events ── */
     public function index(Request $request): JsonResponse
@@ -24,11 +30,11 @@ class EventController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'title'       => ['required', 'string', 'max:200'],
+            'title' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string'],
             'cover_photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
-            'event_date'  => ['nullable', 'date'],
-            'venue'       => ['nullable', 'string', 'max:300'],
+            'event_date' => ['nullable', 'date'],
+            'venue' => ['nullable', 'string', 'max:300'],
         ]);
 
         $event = $this->eventService->create($request->user(), $request->all());
@@ -48,10 +54,10 @@ class EventController extends Controller
     {
         $this->authorize('update', $event);
         $request->validate([
-            'title'       => ['sometimes', 'string', 'max:200'],
+            'title' => ['sometimes', 'string', 'max:200'],
             'description' => ['nullable', 'string'],
-            'event_date'  => ['nullable', 'date'],
-            'venue'       => ['nullable', 'string', 'max:300'],
+            'event_date' => ['nullable', 'date'],
+            'venue' => ['nullable', 'string', 'max:300'],
         ]);
         $event->update($request->only(['title', 'description', 'event_date', 'venue']));
         return ApiResponse::success('Event updated.', $event->fresh());
@@ -78,11 +84,11 @@ class EventController extends Controller
     {
         $this->authorize('update', $event);
         $request->validate([
-            'guests'                   => ['required', 'array', 'min:1'],
-            'guests.*.full_name'       => ['required', 'string'],
-            'guests.*.email'           => ['nullable', 'email'],
-            'guests.*.phone'           => ['nullable', 'string'],
-            'guests.*.allow_plus_one'  => ['nullable', 'boolean'],
+            'guests' => ['required', 'array', 'min:1'],
+            'guests.*.full_name' => ['required', 'string'],
+            'guests.*.email' => ['nullable', 'email'],
+            'guests.*.phone' => ['nullable', 'string'],
+            'guests.*.allow_plus_one' => ['nullable', 'boolean'],
         ]);
         $guests = $this->eventService->addGuests($event, $request->guests);
         return ApiResponse::success('Guests added.', $guests, 201);
@@ -127,15 +133,16 @@ class EventController extends Controller
     public function publicShow(string $token): JsonResponse
     {
         $event = $this->eventService->findByToken($token);
-        if (!$event) return ApiResponse::notFound('Event not found.');
+        if (!$event)
+            return ApiResponse::notFound('Event not found.');
 
         return ApiResponse::success('Event retrieved.', [
-            'id'          => $event->id,
-            'title'       => $event->title,
+            'id' => $event->id,
+            'title' => $event->title,
             'description' => $event->description,
             'cover_photo' => $event->cover_photo,
-            'event_date'  => $event->event_date,
-            'venue'       => $event->venue,
+            'event_date' => $event->event_date,
+            'venue' => $event->venue,
         ]);
     }
 
@@ -143,7 +150,8 @@ class EventController extends Controller
     public function checkInByQr(string $qrToken): JsonResponse
     {
         $guest = $this->eventService->checkInByQrToken($qrToken);
-        if (!$guest) return ApiResponse::notFound('Guest not found.');
+        if (!$guest)
+            return ApiResponse::notFound('Guest not found.');
         return ApiResponse::success('Guest checked in successfully.', $guest);
     }
 }
