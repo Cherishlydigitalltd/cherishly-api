@@ -13,7 +13,8 @@ class InvitationService
 {
     public function __construct(
         private AssetService $assetService
-    ) {}
+    ) {
+    }
 
     /* ── List ── */
 
@@ -36,10 +37,10 @@ class InvitationService
         }
 
         return Invitation::create([
-            'user_id'       => $user->id,
-            'title'         => $data['title'],
-            'description'   => $data['description'] ?? null,
-            'cover_photo'   => $coverPhotoUrl,
+            'user_id' => $user->id,
+            'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'cover_photo' => $coverPhotoUrl,
             'rsvp_deadline' => $data['rsvp_deadline'] ?? null,
         ]);
     }
@@ -80,10 +81,10 @@ class InvitationService
 
         foreach ($guests as $guest) {
             $created[] = InvitationGuest::create([
-                'invitation_id'  => $invitation->id,
-                'full_name'      => $guest['full_name'],
-                'email'          => $guest['email'] ?? null,
-                'phone'          => $guest['phone'] ?? null,
+                'invitation_id' => $invitation->id,
+                'full_name' => $guest['full_name'],
+                'email' => $guest['email'] ?? null,
+                'phone' => $guest['phone'] ?? null,
                 'allow_plus_one' => $guest['allow_plus_one'] ?? false,
             ]);
         }
@@ -101,13 +102,14 @@ class InvitationService
         $header = fgetcsv($handle); // skip header row
 
         while (($row = fgetcsv($handle)) !== false) {
-            if (empty($row[0])) continue;
+            if (empty($row[0]))
+                continue;
 
             $guests[] = InvitationGuest::create([
                 'invitation_id' => $invitation->id,
-                'full_name'     => $row[0] ?? '',
-                'email'         => $row[1] ?? null,
-                'phone'         => $row[2] ?? null,
+                'full_name' => $row[0] ?? '',
+                'email' => $row[1] ?? null,
+                'phone' => $row[2] ?? null,
             ]);
         }
 
@@ -126,8 +128,8 @@ class InvitationService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('full_name', 'ilike', "%{$search}%")
-                  ->orWhere('email', 'ilike', "%{$search}%")
-                  ->orWhere('phone', 'ilike', "%{$search}%");
+                    ->orWhere('email', 'ilike', "%{$search}%")
+                    ->orWhere('phone', 'ilike', "%{$search}%");
             });
         }
 
@@ -180,8 +182,8 @@ class InvitationService
     public function rsvp(InvitationGuest $guest, string $status, bool $hasPlusOne = false): InvitationGuest
     {
         $guest->update([
-            'rsvp_status'       => $status,
-            'has_plus_one'      => $hasPlusOne,
+            'rsvp_status' => $status,
+            'has_plus_one' => $hasPlusOne,
             'rsvp_responded_at' => now(),
         ]);
 
@@ -193,7 +195,7 @@ class InvitationService
     public function checkIn(InvitationGuest $guest): InvitationGuest
     {
         $guest->update([
-            'checked_in'    => true,
+            'checked_in' => true,
             'checked_in_at' => now(),
         ]);
 
@@ -204,10 +206,10 @@ class InvitationService
 
     public function getAttendance(Invitation $invitation): array
     {
-        $total      = $invitation->guests()->where('rsvp_status', 'attending')->count();
-        $checkedIn  = $invitation->guests()->where('checked_in', true)->count();
-        $remaining  = max(0, $total - $checkedIn);
-        $rate       = $total > 0 ? round(($checkedIn / $total) * 100) : 0;
+        $total = $invitation->guests()->where('rsvp_status', 'attending')->count();
+        $checkedIn = $invitation->guests()->where('checked_in', true)->count();
+        $remaining = max(0, $total - $checkedIn);
+        $rate = $total > 0 ? round(($checkedIn / $total) * 100) : 0;
 
         $recentCheckIns = $invitation->guests()
             ->where('checked_in', true)
@@ -216,8 +218,8 @@ class InvitationService
             ->get(['full_name', 'checked_in_at']);
 
         return [
-            'checked_in'      => $checkedIn,
-            'remaining'       => $remaining,
+            'checked_in' => $checkedIn,
+            'remaining' => $remaining,
             'attendance_rate' => $rate,
             'recent_checkins' => $recentCheckIns,
         ];
