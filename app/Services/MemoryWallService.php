@@ -12,7 +12,8 @@ class MemoryWallService
 {
     public function __construct(
         private AssetService $assetService
-    ) {}
+    ) {
+    }
 
     /* ── List ── */
 
@@ -35,13 +36,16 @@ class MemoryWallService
         }
 
         return MemoryWall::create([
-            'user_id'     => $user->id,
-            'title'       => $data['title'],
+            'user_id' => $user->id,
+            'title' => $data['title'],
             'description' => $data['description'] ?? null,
             'cover_photo' => $coverPhotoUrl,
-            'is_active'   => $data['is_active'] ?? true,
+            'wall_type' => $data['wall_type'] ?? 'wishes',
+            'is_active' => true,
         ]);
     }
+
+
 
     /* ── Update ── */
 
@@ -101,9 +105,9 @@ class MemoryWallService
     public function addWish(MemoryWall $wall, array $data): Wish
     {
         return Wish::create([
-            'wall_id'      => $wall->id,
-            'name'         => $data['name'],
-            'message'      => $data['message'],
+            'wall_id' => $wall->id,
+            'name' => $data['name'],
+            'message' => $data['message'],
             'is_anonymous' => $data['is_anonymous'] ?? false,
         ]);
     }

@@ -18,6 +18,7 @@ class MemoryWall extends Model
         'cover_photo',
         'share_token',
         'is_active',
+        'wall_type',
     ];
 
     protected $casts = [
