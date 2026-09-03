@@ -15,7 +15,8 @@ class MemoryWallController extends Controller
 {
     public function __construct(
         private MemoryWallService $wallService
-    ) {}
+    ) {
+    }
 
     /**
      * GET /api/walls
@@ -101,11 +102,14 @@ class MemoryWallController extends Controller
         }
 
         return ApiResponse::success('Memory wall retrieved.', [
-            'id'          => $wall->id,
-            'title'       => $wall->title,
+            'id' => $wall->id,
+            'title' => $wall->title,
             'description' => $wall->description,
             'cover_photo' => $wall->cover_photo,
-            'host'        => $wall->user->full_name,
+            'wall_type' => $wall->wall_type ?? 'wishes',
+            'host' => $wall->user->full_name,
+            'public_url' => $wall->public_url,
+            'share_token' => $wall->share_token,
         ]);
     }
 
