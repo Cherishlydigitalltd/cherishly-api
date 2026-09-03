@@ -10,6 +10,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SecretSantaController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\EventController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -50,6 +51,8 @@ Route::prefix('public')->group(function () {
     Route::get('monetary/{token}', [MonetaryController::class, 'publicShow']);
     Route::post('monetary/{token}/contribute', [MonetaryController::class, 'contribute']);
     Route::get('santa/{token}', [SecretSantaController::class, 'publicShow']);
+    Route::get('events/{token}', [EventController::class, 'publicShow']);
+    Route::get('events/checkin/{qrToken}', [EventController::class, 'checkInByQr']);
     Route::post('santa/{token}/reveal', [SecretSantaController::class, 'revealMatch']);
     Route::get('invitations/{token}', [InvitationController::class, 'publicShow']);
     Route::get('invitations/guest/{qrToken}', [InvitationController::class, 'guestByQr']);
@@ -137,6 +140,21 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/{santa}/participants/import', [SecretSantaController::class, 'importParticipants']);
         Route::delete('/{santa}/participants/{participant}', [SecretSantaController::class, 'removeParticipant']);
         Route::post('/{santa}/generate-matches', [SecretSantaController::class, 'generateMatches']);
+    });
+
+    // Events
+    Route::prefix('events')->group(function () {
+        Route::get('/', [EventController::class, 'index']);
+        Route::post('/', [EventController::class, 'store']);
+        Route::get('/{event}', [EventController::class, 'show']);
+        Route::put('/{event}', [EventController::class, 'update']);
+        Route::delete('/{event}', [EventController::class, 'destroy']);
+        Route::get('/{event}/guests', [EventController::class, 'guests']);
+        Route::post('/{event}/guests', [EventController::class, 'addGuests']);
+        Route::post('/{event}/guests/import', [EventController::class, 'importGuests']);
+        Route::delete('/{event}/guests/{guest}', [EventController::class, 'removeGuest']);
+        Route::post('/{event}/guests/{guest}/checkin', [EventController::class, 'checkIn']);
+        Route::get('/{event}/attendance', [EventController::class, 'attendance']);
     });
 
     // Memory Walls

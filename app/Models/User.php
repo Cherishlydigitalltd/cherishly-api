@@ -31,11 +31,11 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'email_verified_at'  => 'datetime',
-        'is_email_verified'  => 'boolean',
-        'is_phone_verified'  => 'boolean',
-        'is_active'          => 'boolean',
-        'password'           => 'hashed',
+        'email_verified_at' => 'datetime',
+        'is_email_verified' => 'boolean',
+        'is_phone_verified' => 'boolean',
+        'is_active' => 'boolean',
+        'password' => 'hashed',
     ];
 
     protected $appends = ['full_name'];
@@ -82,5 +82,10 @@ class User extends Authenticatable
     public function memoryWalls()
     {
         return $this->hasMany(MemoryWall::class);
+    }
+
+    public function events()
+    {
+        return $this->hasMany(Event::class);
     }
 }
