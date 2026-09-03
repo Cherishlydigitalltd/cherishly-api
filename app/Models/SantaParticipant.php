@@ -13,6 +13,7 @@ class SantaParticipant extends Model
         'santa_id',
         'name',
         'email',
+        'code',
         'assigned_to_id',
     ];
 
