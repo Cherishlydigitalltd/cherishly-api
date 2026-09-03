@@ -30,6 +30,7 @@ class SecretSantaService
             'title' => $data['title'],
             'description' => $data['description'] ?? null,
             'budget' => $data['budget'] ?? null,
+            'share_token' => strtoupper(substr(md5(uniqid()), 0, 12)),
         ]);
     }
 

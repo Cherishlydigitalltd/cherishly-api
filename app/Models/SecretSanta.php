@@ -17,10 +17,11 @@ class SecretSanta extends Model
         'budget',
         'is_matched',
         'matched_at',
+        'share_token',
     ];
 
     protected $casts = [
-        'budget'     => 'decimal:2',
+        'budget' => 'decimal:2',
         'is_matched' => 'boolean',
         'matched_at' => 'datetime',
     ];
