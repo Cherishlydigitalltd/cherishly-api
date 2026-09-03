@@ -26,10 +26,10 @@ class SecretSantaService
     public function create(User $user, array $data): SecretSanta
     {
         return SecretSanta::create([
-            'user_id'     => $user->id,
-            'title'       => $data['title'],
+            'user_id' => $user->id,
+            'title' => $data['title'],
             'description' => $data['description'] ?? null,
-            'budget'      => $data['budget'] ?? null,
+            'budget' => $data['budget'] ?? null,
         ]);
     }
 
@@ -62,8 +62,9 @@ class SecretSantaService
         foreach ($participants as $participant) {
             $created[] = SantaParticipant::create([
                 'santa_id' => $santa->id,
-                'name'     => $participant['name'],
-                'email'    => $participant['email'] ?? null,
+                'name' => $participant['name'],
+                'email' => $participant['email'] ?? null,
+                'code' => strtoupper(substr(md5(uniqid()), 0, 6)),
             ]);
         }
 
@@ -79,12 +80,14 @@ class SecretSantaService
         fgetcsv($handle); // skip header
 
         while (($row = fgetcsv($handle)) !== false) {
-            if (empty($row[0])) continue;
+            if (empty($row[0]))
+                continue;
 
             $participants[] = SantaParticipant::create([
                 'santa_id' => $santa->id,
-                'name'     => $row[0] ?? '',
-                'email'    => $row[1] ?? null,
+                'name' => $row[0] ?? '',
+                'email' => $row[1] ?? null,
+                'code' => strtoupper(substr(md5(uniqid()), 0, 6)),
             ]);
         }
 
@@ -111,7 +114,7 @@ class SecretSantaService
             }
 
             // Shuffle participants for random assignment
-            $givers    = $participants->shuffle()->values();
+            $givers = $participants->shuffle()->values();
             $receivers = $givers->slice(1)->concat($givers->slice(0, 1))->values();
 
             // Assign each giver to a receiver

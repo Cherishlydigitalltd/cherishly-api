@@ -15,7 +15,8 @@ class SecretSantaController extends Controller
 {
     public function __construct(
         private SecretSantaService $santaService
-    ) {}
+    ) {
+    }
 
     /**
      * GET /api/santa
@@ -143,4 +144,75 @@ class SecretSantaController extends Controller
             abort(404, 'Participant not found in this Secret Santa.');
         }
     }
+
+
+    /**
+     * GET /api/public/santa/{token}
+     * Public view — get santa info
+     */
+    public function publicShow(string $token): JsonResponse
+    {
+        $santa = SecretSanta::where('share_token', $token)->first();
+
+        if (!$santa) {
+            return ApiResponse::notFound('Secret Santa not found.');
+        }
+
+        return ApiResponse::success('Secret Santa retrieved.', [
+            'id' => $santa->id,
+            'title' => $santa->title,
+            'cover_photo' => $santa->cover_photo,
+            'is_matched' => $santa->is_matched,
+            'budget' => $santa->budget,
+        ]);
+    }
+
+    /**
+     * POST /api/public/santa/{token}/reveal
+     * Reveal match by code or email
+     */
+    public function revealMatch(Request $request, string $token): JsonResponse
+    {
+        $request->validate([
+            'identifier' => ['required', 'string'],
+        ]);
+
+        $santa = SecretSanta::where('share_token', $token)->first();
+
+        if (!$santa) {
+            return ApiResponse::notFound('Secret Santa not found.');
+        }
+
+        if (!$santa->is_matched) {
+            return ApiResponse::error('Matches have not been generated yet.', null, 422);
+        }
+
+        $identifier = trim($request->identifier);
+
+        // Find participant by code or email
+        $participant = $santa->participants()
+            ->with('assignedTo')
+            ->where(function ($q) use ($identifier) {
+                $q->where('code', $identifier)
+                    ->orWhere('email', $identifier);
+            })
+            ->first();
+
+        if (!$participant) {
+            return ApiResponse::error('No participant found with that code or email.', null, 404);
+        }
+
+        if (!$participant->assignedTo) {
+            return ApiResponse::error('You have not been assigned a recipient yet.', null, 422);
+        }
+
+        return ApiResponse::success('Match revealed.', [
+            'participant_name' => $participant->name,
+            'recipient_name' => $participant->assignedTo->name,
+            'budget' => $santa->budget,
+        ]);
+    }
+
+
+
 }

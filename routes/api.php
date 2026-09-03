@@ -49,6 +49,8 @@ Route::prefix('public')->group(function () {
     Route::post('registries/{token}/gifts/{gift}/contribute', [GiftRegistryController::class, 'contribute']);
     Route::get('monetary/{token}', [MonetaryController::class, 'publicShow']);
     Route::post('monetary/{token}/contribute', [MonetaryController::class, 'contribute']);
+    Route::get('santa/{token}', [SecretSantaController::class, 'publicShow']);
+    Route::post('santa/{token}/reveal', [SecretSantaController::class, 'revealMatch']);
     Route::get('invitations/{token}', [InvitationController::class, 'publicShow']);
     Route::get('invitations/guest/{qrToken}', [InvitationController::class, 'guestByQr']);
     Route::post('invitations/{token}/rsvp/{guest}', [InvitationController::class, 'rsvp']);
