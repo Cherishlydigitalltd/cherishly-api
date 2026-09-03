@@ -130,7 +130,7 @@ class SecretSantaService
             // Send notification emails
             foreach ($givers as $index => $giver) {
                 if ($giver->email) {
-                    \App\Jobs\SendSantaMatchEmail::dispatch($giver, $receivers[$index]);
+                    \App\Jobs\SendSantaMatchEmail::dispatch($giver, $receivers[$index], $santa);
                 }
             }
 
