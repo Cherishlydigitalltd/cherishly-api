@@ -154,4 +154,17 @@ class EventController extends Controller
             return ApiResponse::notFound('Guest not found.');
         return ApiResponse::success('Guest checked in successfully.', $guest);
     }
+
+    public function sendInvitations(Request $request, Event $event): JsonResponse
+    {
+        $this->authorize('update', $event);
+
+        $guests = $event->guests()->whereNotNull('email')->get();
+
+        foreach ($guests as $guest) {
+            \App\Jobs\SendEventInvitationEmail::dispatch($guest, $event);
+        }
+
+        return ApiResponse::success("Invitations sent to {$guests->count()} guests.");
+    }
 }

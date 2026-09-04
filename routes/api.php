@@ -155,6 +155,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::delete('/{event}/guests/{guest}', [EventController::class, 'removeGuest']);
         Route::post('/{event}/guests/{guest}/checkin', [EventController::class, 'checkIn']);
         Route::get('/{event}/attendance', [EventController::class, 'attendance']);
+        Route::post('/{event}/send-invitations', [EventController::class, 'sendInvitations']);
     });
 
     // Memory Walls
