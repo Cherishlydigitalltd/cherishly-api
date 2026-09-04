@@ -209,8 +209,13 @@ class EventController extends Controller
 
         $guest->update(['rsvp_status' => $request->status]);
 
+        // Send confirmation email if attending
+        if ($request->status === 'attending' && $guest->email) {
+            \App\Jobs\SendEventConfirmationEmail::dispatch($guest->fresh(), $event);
+        }
+
         return ApiResponse::success('RSVP submitted.', [
-            'rsvp_status' => $guest->rsvp_status,
+            'rsvp_status' => $guest->fresh()->rsvp_status,
             'qr_token' => $guest->qr_token,
             'qr_url' => $guest->qr_url,
         ]);
