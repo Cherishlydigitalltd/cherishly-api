@@ -171,4 +171,5 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::delete('/{wall}/wishes/{wish}', [MemoryWallController::class, 'deleteWish']);
     });
 
+    Route::get('gifts/catalog', [GiftRegistryController::class, 'catalog']);
 });

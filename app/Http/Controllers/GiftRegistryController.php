@@ -12,12 +12,14 @@ use App\Models\GiftRegistry;
 use App\Services\GiftRegistryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Models\CatalogGift;
 
 class GiftRegistryController extends Controller
 {
     public function __construct(
         private GiftRegistryService $registryService
-    ) {}
+    ) {
+    }
 
     /* ────────────────────────────────────────────
      | REGISTRY ENDPOINTS
@@ -53,9 +55,11 @@ class GiftRegistryController extends Controller
     {
         $this->authorizeOwner($request, $registry);
 
-        $registry->load(['gifts' => function ($q) {
-            $q->withCount('successfulContributions');
-        }]);
+        $registry->load([
+            'gifts' => function ($q) {
+                $q->withCount('successfulContributions');
+            }
+        ]);
 
         return ApiResponse::success('Registry retrieved.', $registry);
     }
@@ -205,9 +209,9 @@ class GiftRegistryController extends Controller
 
             return ApiResponse::success('Contribution initiated. Complete payment to confirm.', [
                 'contribution_id' => $contribution->id,
-                'amount'          => $contribution->amount,
-                'payment_method'  => $contribution->payment_method,
-                'reference'       => $contribution->payment_reference,
+                'amount' => $contribution->amount,
+                'payment_method' => $contribution->payment_method,
+                'reference' => $contribution->payment_reference,
             ], 201);
         } catch (\RuntimeException $e) {
             return ApiResponse::error($e->getMessage());
@@ -230,5 +234,29 @@ class GiftRegistryController extends Controller
         if ($gift->registry_id !== $registry->id) {
             abort(404, 'Gift not found in this registry.');
         }
+    }
+
+
+
+    /**
+     * GET /api/gifts/catalog
+     * Public catalog of available gifts (authenticated)
+     */
+    public function catalog(Request $request): JsonResponse
+    {
+        $query = CatalogGift::query();
+
+        if ($search = $request->query('search')) {
+            $query->where('name', 'ilike', "%{$search}%")
+                ->orWhere('category', 'ilike', "%{$search}%");
+        }
+
+        if ($category = $request->query('category')) {
+            $query->where('category', $category);
+        }
+
+        $gifts = $query->latest()->paginate(12);
+
+        return ApiResponse::success('Catalog gifts retrieved.', $gifts);
     }
 }
