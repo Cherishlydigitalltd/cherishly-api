@@ -195,7 +195,7 @@ class EventController extends Controller
     public function publicRsvp(Request $request, string $token): JsonResponse
     {
         $request->validate([
-            'guest_id' => ['required', 'integer'],
+            'guest_id' => ['nullable', 'integer'],
             'status' => ['required', 'in:attending,declined'],
         ]);
 

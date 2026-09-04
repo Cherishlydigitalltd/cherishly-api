@@ -21,25 +21,26 @@ class SendEventInvitationEmail implements ShouldQueue
     public function __construct(
         public EventGuest $guest,
         public Event $event
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {
-        $rsvpUrl = config('app.frontend_url') . '/event/' . $this->event->share_token;
+        $rsvpUrl = config('app.frontend_url') . '/event/' . $this->event->share_token . '?guest=' . $this->guest->id;
 
         Mail::send('emails.event_invitation', [
-            'guest'   => $this->guest,
-            'event'   => $this->event,
+            'guest' => $this->guest,
+            'event' => $this->event,
             'rsvpUrl' => $rsvpUrl,
         ], function ($message) {
             $message->to($this->guest->email, $this->guest->full_name)
-                    ->subject("You're Invited: {$this->event->title}");
+                ->subject("You're Invited: {$this->event->title}");
         });
 
         Log::info('Event invitation email sent', [
             'guest_id' => $this->guest->id,
             'event_id' => $this->event->id,
-            'email'    => $this->guest->email,
+            'email' => $this->guest->email,
         ]);
     }
 }
