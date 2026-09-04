@@ -130,30 +130,7 @@ class EventController extends Controller
     }
 
     /* ── Public show ── */
-    public function publicShow(string $token): JsonResponse
-    {
-        $event = $this->eventService->findByToken($token);
-        if (!$event)
-            return ApiResponse::notFound('Event not found.');
 
-        return ApiResponse::success('Event retrieved.', [
-            'id' => $event->id,
-            'title' => $event->title,
-            'description' => $event->description,
-            'cover_photo' => $event->cover_photo,
-            'event_date' => $event->event_date,
-            'venue' => $event->venue,
-        ]);
-    }
-
-    /* ── Check in by QR token (public) ── */
-    public function checkInByQr(string $qrToken): JsonResponse
-    {
-        $guest = $this->eventService->checkInByQrToken($qrToken);
-        if (!$guest)
-            return ApiResponse::notFound('Guest not found.');
-        return ApiResponse::success('Guest checked in successfully.', $guest);
-    }
 
     public function sendInvitations(Request $request, Event $event): JsonResponse
     {
@@ -167,4 +144,94 @@ class EventController extends Controller
 
         return ApiResponse::success("Invitations sent to {$guests->count()} guests.");
     }
+
+    /**
+     * GET /api/public/events/{token}
+     */
+    public function publicShow(string $token): JsonResponse
+    {
+        $event = $this->eventService->findByToken($token);
+        if (!$event)
+            return ApiResponse::notFound('Event not found.');
+
+        return ApiResponse::success('Event retrieved.', [
+            'id' => $event->id,
+            'title' => $event->title,
+            'description' => $event->description,
+            'cover_photo' => $event->cover_photo,
+            'event_date' => $event->event_date,
+            'venue' => $event->venue,
+            'host' => optional($event->user)->full_name,
+            'share_token' => $event->share_token,
+        ]);
+    }
+
+    /**
+     * GET /api/public/events/{token}/guest/{guestId}
+     */
+    public function publicGuest(string $token, int $guestId): JsonResponse
+    {
+        $event = $this->eventService->findByToken($token);
+        if (!$event)
+            return ApiResponse::notFound('Event not found.');
+
+        $guest = $event->guests()->find($guestId);
+        if (!$guest)
+            return ApiResponse::notFound('Guest not found.');
+
+        return ApiResponse::success('Guest retrieved.', [
+            'id' => $guest->id,
+            'full_name' => $guest->full_name,
+            'email' => $guest->email,
+            'qr_token' => $guest->qr_token,
+            'qr_url' => $guest->qr_url,
+            'rsvp_status' => $guest->rsvp_status,
+        ]);
+    }
+
+    /**
+     * POST /api/public/events/{token}/rsvp
+     */
+    public function publicRsvp(Request $request, string $token): JsonResponse
+    {
+        $request->validate([
+            'guest_id' => ['required', 'integer'],
+            'status' => ['required', 'in:attending,declined'],
+        ]);
+
+        $event = $this->eventService->findByToken($token);
+        if (!$event)
+            return ApiResponse::notFound('Event not found.');
+
+        $guest = $event->guests()->find($request->guest_id);
+        if (!$guest)
+            return ApiResponse::notFound('Guest not found.');
+
+        $guest->update(['rsvp_status' => $request->status]);
+
+        return ApiResponse::success('RSVP submitted.', [
+            'rsvp_status' => $guest->rsvp_status,
+            'qr_token' => $guest->qr_token,
+            'qr_url' => $guest->qr_url,
+        ]);
+    }
+
+    /**
+     * GET /api/public/events/checkin/{qrToken}
+     */
+    public function checkInByQr(string $qrToken): JsonResponse
+    {
+        $guest = EventGuest::where('qr_token', $qrToken)->with('event')->first();
+        if (!$guest)
+            return ApiResponse::notFound('Guest not found.');
+
+        $guest = $this->eventService->checkIn($guest);
+
+        return ApiResponse::success('Guest checked in.', [
+            'full_name' => $guest->full_name,
+            'event' => $guest->event->title,
+            'checked_in_at' => $guest->checked_in_at,
+        ]);
+    }
+
 }
