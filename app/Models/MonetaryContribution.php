@@ -24,7 +24,7 @@ class MonetaryContribution extends Model
     ];
 
     protected $casts = [
-        'amount'       => 'decimal:2',
+        'amount' => 'decimal:2',
         'is_anonymous' => 'boolean',
         'payment_meta' => 'array',
     ];
@@ -41,5 +41,13 @@ class MonetaryContribution extends Model
     public function scopeSuccessful($query)
     {
         return $query->where('payment_status', 'successful');
+    }
+
+    protected function bvn(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(
+            get: fn(?string $value) => $value ? \Illuminate\Support\Facades\Crypt::decryptString($value) : null,
+            set: fn(?string $value) => $value ? \Illuminate\Support\Facades\Crypt::encryptString($value) : null,
+        );
     }
 }

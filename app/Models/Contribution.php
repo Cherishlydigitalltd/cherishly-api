@@ -24,7 +24,7 @@ class Contribution extends Model
     ];
 
     protected $casts = [
-        'amount'       => 'decimal:2',
+        'amount' => 'decimal:2',
         'is_anonymous' => 'boolean',
         'payment_meta' => 'array',
     ];
@@ -46,5 +46,13 @@ class Contribution extends Model
     public function scopePending($query)
     {
         return $query->where('payment_status', 'pending');
+    }
+
+    protected function bvn(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(
+            get: fn(?string $value) => $value ? \Illuminate\Support\Facades\Crypt::decryptString($value) : null,
+            set: fn(?string $value) => $value ? \Illuminate\Support\Facades\Crypt::encryptString($value) : null,
+        );
     }
 }

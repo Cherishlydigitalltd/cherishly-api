@@ -45,17 +45,17 @@ Route::prefix('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::get('payment/verify/{reference}', [PaymentController::class, 'verify']);
-Route::post('contact', [App\Http\Controllers\SupportController::class, 'contact']);
+Route::post('contact', [App\Http\Controllers\SupportController::class, 'contact'])->middleware('throttle:contact');
 
 Route::prefix('public')->group(function () {
     // Gift Registries
     Route::get('registries', [GiftRegistryController::class, 'publicIndex']);
     Route::get('registries/{token}', [GiftRegistryController::class, 'publicShow']);
-    Route::post('registries/{token}/gifts/{gift}/contribute', [GiftRegistryController::class, 'contribute']);
+    Route::post('registries/{token}/gifts/{gift}/contribute', [GiftRegistryController::class, 'contribute'])->middleware('throttle:contribution');
 
     // Monetary
     Route::get('monetary/{token}', [MonetaryController::class, 'publicShow']);
-    Route::post('monetary/{token}/contribute', [MonetaryController::class, 'contribute']);
+    Route::post('monetary/{token}/contribute', [MonetaryController::class, 'contribute'])->middleware('throttle:contribution');
 
     // Secret Santa
     Route::get('santa/{token}', [SecretSantaController::class, 'publicShow']);
@@ -76,7 +76,6 @@ Route::prefix('public')->group(function () {
     Route::get('walls/{token}', [MemoryWallController::class, 'publicShow']);
     Route::get('walls/{token}/wishes', [MemoryWallController::class, 'publicWishes']);
     Route::post('walls/{token}/wishes', [MemoryWallController::class, 'addWish']);
-
 });
 
 /*
