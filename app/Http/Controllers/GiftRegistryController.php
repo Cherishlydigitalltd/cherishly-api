@@ -257,6 +257,11 @@ class GiftRegistryController extends Controller
     public function publicIndex(): JsonResponse
     {
         $registries = GiftRegistry::where('is_public', true)
+            ->with([
+                'gifts' => function ($q) {
+                    $q->limit(5);
+                }
+            ])
             ->latest()
             ->paginate(20);
         return ApiResponse::success('Registries retrieved.', $registries);
