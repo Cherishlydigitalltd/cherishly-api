@@ -24,6 +24,8 @@ return [
         'https://www.cherishlyng.com',
         'http://localhost:5173',
         'http://localhost:3000',
+        'http://localhost:5175',
+        
     ],
 
     'allowed_origins_patterns' => [],
