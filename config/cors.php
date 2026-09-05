@@ -22,6 +22,8 @@ return [
     'allowed_origins' => [
         'https://cherishlyng.com',
         'https://www.cherishlyng.com',
+        'http://localhost:5173',
+        'http://localhost:3000',
     ],
 
     'allowed_origins_patterns' => [],
