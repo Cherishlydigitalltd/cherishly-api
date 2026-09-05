@@ -41,7 +41,7 @@ class GiftRegistry extends Model
 
     public function getPublicUrlAttribute(): string
     {
-        return config('app.frontend_url') . '/celebrate/' . $this->share_token;
+        return config('app.frontend_url') . '/registry/' . $this->share_token;
     }
 
     public function getTotalGiftsAttribute(): int
