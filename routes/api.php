@@ -195,4 +195,6 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::put('/{id}/read', [NotificationController::class, 'markRead']);
         Route::put('/read-all', [NotificationController::class, 'markAllRead']);
     });
+
+    Route::post('support', [App\Http\Controllers\SupportController::class, 'submit']);
 });
