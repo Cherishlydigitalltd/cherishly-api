@@ -22,20 +22,23 @@ class SendSupportEmail implements ShouldQueue
 
     public function handle(): void
     {
+        $userMessage = $this->message;
+        $user = $this->user;
+
         // Email to support team
         Mail::send('emails.support_request', [
-            'user' => $this->user,
-            'message' => $this->message,
-        ], function ($message) {
-            $message->to('support@cherishlyng.com', 'Cherishly Support')
-                ->subject("Support Request from {$this->user->full_name}");
+            'user' => $user,
+            'userMessage' => $userMessage,
+        ], function ($mail) use ($user) {
+            $mail->to('support@cherishlyng.com', 'Cherishly Support')
+                ->subject("Support Request from {$user->full_name}");
         });
 
         // Confirmation email to user
         Mail::send('emails.support_confirmation', [
-            'user' => $this->user,
-        ], function ($message) {
-            $message->to($this->user->email, $this->user->full_name)
+            'user' => $user,
+        ], function ($mail) use ($user) {
+            $mail->to($user->email, $user->full_name)
                 ->subject('We received your support request — Cherishly');
         });
     }

@@ -20,7 +20,7 @@
 
     <div class="otp-box" style="text-align: left;">
         <p class="otp-label">Message</p>
-        <p class="email-text" style="margin: 0;">{{ $message }}</p>
+        <p class="email-text" style="margin: 0;">{{ $userMessage }}</p>
     </div>
 
     <div style="text-align: center; margin: 28px 0;">
