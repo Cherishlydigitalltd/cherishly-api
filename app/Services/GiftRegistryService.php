@@ -148,7 +148,7 @@ class GiftRegistryService
      | CONTRIBUTIONS
      ──────────────────────────────────────────── */
 
-    public function contribute(Gift $gift, array $data): Contribution
+    public function contribute(Gift $gift, array $data): array
     {
         return DB::transaction(function () use ($gift, $data) {
 
@@ -156,6 +156,9 @@ class GiftRegistryService
             if ($gift->is_fully_funded && $gift->type === 'physical') {
                 throw new \RuntimeException('This gift has already been fully funded.');
             }
+
+            // Generate unique reference
+            $reference = 'CHR_GIFT_' . $gift->id . '_' . uniqid();
 
             $contribution = Contribution::create([
                 'gift_id' => $gift->id,
@@ -166,10 +169,37 @@ class GiftRegistryService
                 'bvn' => $data['bvn'] ?? null,
                 'payment_method' => $data['payment_method'],
                 'payment_status' => 'pending',
+                'payment_reference' => $reference,
                 'is_anonymous' => $data['is_anonymous'] ?? false,
             ]);
 
-            return $contribution;
+            // Initialize payment via gateway
+            $gateway = app(\App\Services\GatewayService::class);
+
+            $payment = $gateway->initializePayment([
+                'email' => $data['donor_email'],
+                'name' => $data['donor_name'],
+                'amount' => $data['amount'],
+                'reference' => $reference,
+                'callback_url' => config('app.frontend_url') . '/payment/callback',
+                'metadata' => [
+                    'contribution_id' => $contribution->id,
+                    'gift_id' => $gift->id,
+                    'type' => 'gift_contribution',
+                ],
+            ]);
+
+            if (!$payment['success']) {
+                throw new \RuntimeException($payment['message'] ?? 'Payment initialization failed.');
+            }
+
+            return [
+                'contribution_id' => $contribution->id,
+                'amount' => $contribution->amount,
+                'payment_method' => $contribution->payment_method,
+                'reference' => $reference,
+                'payment_url' => $payment['payment_url'],
+            ];
         });
     }
 

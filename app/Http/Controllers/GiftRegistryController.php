@@ -197,7 +197,6 @@ class GiftRegistryController extends Controller
             return ApiResponse::error('Gift does not belong to this registry.');
         }
 
-        // BVN required for amounts > 5,000,000
         if ($request->amount > 5000000 && empty($request->bvn)) {
             return ApiResponse::error('BVN is required for contributions above ₦5,000,000.', [
                 'bvn' => ['BVN is required for amounts above ₦5,000,000.']
@@ -205,14 +204,9 @@ class GiftRegistryController extends Controller
         }
 
         try {
-            $contribution = $this->registryService->contribute($gift, $request->validated());
+            $result = $this->registryService->contribute($gift, $request->validated());
 
-            return ApiResponse::success('Contribution initiated. Complete payment to confirm.', [
-                'contribution_id' => $contribution->id,
-                'amount' => $contribution->amount,
-                'payment_method' => $contribution->payment_method,
-                'reference' => $contribution->payment_reference,
-            ], 201);
+            return ApiResponse::success('Contribution initiated. Complete payment to confirm.', $result, 201);
         } catch (\RuntimeException $e) {
             return ApiResponse::error($e->getMessage());
         }
@@ -258,5 +252,13 @@ class GiftRegistryController extends Controller
         $gifts = $query->latest()->paginate(12);
 
         return ApiResponse::success('Catalog gifts retrieved.', $gifts);
+    }
+
+    public function publicIndex(): JsonResponse
+    {
+        $registries = GiftRegistry::where('is_public', true)
+            ->latest()
+            ->paginate(20);
+        return ApiResponse::success('Registries retrieved.', $registries);
     }
 }

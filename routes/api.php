@@ -46,19 +46,31 @@ Route::prefix('auth')->group(function () {
 Route::get('payment/verify/{reference}', [PaymentController::class, 'verify']);
 
 Route::prefix('public')->group(function () {
+    // Gift Registries
+    Route::get('registries', [GiftRegistryController::class, 'publicIndex']);
     Route::get('registries/{token}', [GiftRegistryController::class, 'publicShow']);
     Route::post('registries/{token}/gifts/{gift}/contribute', [GiftRegistryController::class, 'contribute']);
+
+    // Monetary
     Route::get('monetary/{token}', [MonetaryController::class, 'publicShow']);
     Route::post('monetary/{token}/contribute', [MonetaryController::class, 'contribute']);
+
+    // Secret Santa
     Route::get('santa/{token}', [SecretSantaController::class, 'publicShow']);
+    Route::post('santa/{token}/reveal', [SecretSantaController::class, 'revealMatch']);
+
+    // Events
     Route::get('events/{token}', [EventController::class, 'publicShow']);
     Route::get('events/{token}/guest/{guestId}', [EventController::class, 'publicGuest']);
     Route::post('events/{token}/rsvp', [EventController::class, 'publicRsvp']);
     Route::get('events/checkin/{qrToken}', [EventController::class, 'checkInByQr']);
-    Route::post('santa/{token}/reveal', [SecretSantaController::class, 'revealMatch']);
+
+    // Invitations
     Route::get('invitations/{token}', [InvitationController::class, 'publicShow']);
     Route::get('invitations/guest/{qrToken}', [InvitationController::class, 'guestByQr']);
     Route::post('invitations/{token}/rsvp/{guest}', [InvitationController::class, 'rsvp']);
+
+    // Memory Walls
     Route::get('walls/{token}', [MemoryWallController::class, 'publicShow']);
     Route::get('walls/{token}/wishes', [MemoryWallController::class, 'publicWishes']);
     Route::post('walls/{token}/wishes', [MemoryWallController::class, 'addWish']);
@@ -78,7 +90,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // Profile
     Route::get('profile', [ProfileController::class, 'show']);
     Route::put('profile', [ProfileController::class, 'update']);
-    Route::post('profile/avatar', [ProfileController::class, 'updateAvatar']);
+    Route::post('profile/avatar', [ProfileController::class, 'uploadAvatar']);
     Route::delete('profile/avatar', [ProfileController::class, 'deleteAvatar']);
     Route::post('profile/change-password', [ProfileController::class, 'changePassword']);
 
@@ -89,6 +101,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('wallet/resolve-account', [WalletController::class, 'resolveAccount']);
     Route::put('wallet/bank-details', [WalletController::class, 'updateBankDetails']);
     Route::post('wallet/withdraw', [WalletController::class, 'withdraw'])->middleware('throttle:withdraw');
+
+    // Gift catalog (auth required)
+    Route::get('gifts/catalog', [GiftRegistryController::class, 'catalog']);
 
     // Gift Registries
     Route::prefix('registries')->group(function () {
@@ -170,6 +185,4 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/{wall}/wishes', [MemoryWallController::class, 'wishes']);
         Route::delete('/{wall}/wishes/{wish}', [MemoryWallController::class, 'deleteWish']);
     });
-
-    Route::get('gifts/catalog', [GiftRegistryController::class, 'catalog']);
 });
