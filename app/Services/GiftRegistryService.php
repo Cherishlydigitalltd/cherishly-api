@@ -246,6 +246,19 @@ class GiftRegistryService
                         '🎁'
                     );
 
+
+                    // ── Send email notification ──
+                    $owner = $gift->registry->user;
+                    $donorName = $contribution->is_anonymous ? 'Anonymous' : $contribution->donor_name;
+                    \App\Jobs\SendContributionEmail::dispatch(
+                        $owner,
+                        $donorName,
+                        (float) $contribution->amount,
+                        $gift->name,
+                        $gift->registry->name,
+                        config('app.frontend_url') . '/dashboard/registry/' . $gift->registry_id . '/gift/' . $gift->id,
+                    );
+                    
                 }
             }
 

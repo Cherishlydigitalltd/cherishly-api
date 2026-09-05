@@ -187,6 +187,16 @@ class MonetaryService
                         "/dashboard/monetary/{$gift->id}",
                         '💰'
                     );
+
+                    // ── Send email notification ──
+                    $donorName = $contribution->is_anonymous ? 'Anonymous' : $contribution->donor_name;
+                    \App\Jobs\SendMonetaryContributionEmail::dispatch(
+                        $gift->user,
+                        $donorName,
+                        (float) $contribution->amount,
+                        $gift->title,
+                        config('app.frontend_url') . '/dashboard/monetary/' . $gift->id,
+                    );
                 }
             }
 
