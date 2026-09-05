@@ -31,7 +31,14 @@ class SupportController extends Controller
             'question' => ['required', 'string', 'min:10', 'max:2000'],
         ]);
 
-        \App\Jobs\SendContactEmail::dispatch($request->validated());
+        \App\Jobs\SendContactEmail::dispatch($request->only([
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'source',
+            'question'
+        ]));
 
         return ApiResponse::success('Message sent. We\'ll get back to you soon.');
     }
