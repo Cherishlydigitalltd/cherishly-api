@@ -14,6 +14,13 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\Admin\AdminAuthController;
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminRegistryController;
+use App\Http\Controllers\Admin\AdminCatalogController;
+
+
 /*
 |--------------------------------------------------------------------------
 | Webhook Routes (no auth — verified by signature + IP)
@@ -198,4 +205,43 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     });
 
     Route::post('support', [App\Http\Controllers\SupportController::class, 'submit']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Admin Routes
+|--------------------------------------------------------------------------
+*/
+Route::prefix('admin')->group(function () {
+
+    // Auth — no middleware
+    Route::post('login', [AdminAuthController::class, 'login'])->middleware('throttle:login');
+
+    // Protected admin routes
+    Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+        Route::post('logout', [AdminAuthController::class, 'logout']);
+        Route::get('me', [AdminAuthController::class, 'me']);
+
+        // Dashboard
+        Route::get('dashboard/stats', [AdminDashboardController::class, 'stats']);
+        Route::get('dashboard/activity', [AdminDashboardController::class, 'recentActivity']);
+
+        // Users
+        Route::get('users', [AdminUserController::class, 'index']);
+        Route::get('users/{user}', [AdminUserController::class, 'show']);
+        Route::put('users/{user}/suspend', [AdminUserController::class, 'suspend']);
+        Route::put('users/{user}/activate', [AdminUserController::class, 'activate']);
+        Route::delete('users/{user}', [AdminUserController::class, 'destroy']);
+
+        // Registries
+        Route::get('registries', [AdminRegistryController::class, 'index']);
+        Route::get('registries/{registry}', [AdminRegistryController::class, 'show']);
+        Route::delete('registries/{registry}', [AdminRegistryController::class, 'destroy']);
+
+        // Catalog gifts
+        Route::get('catalog', [AdminCatalogController::class, 'index']);
+        Route::post('catalog', [AdminCatalogController::class, 'store']);
+        Route::put('catalog/{catalogGift}', [AdminCatalogController::class, 'update']);
+        Route::delete('catalog/{catalogGift}', [AdminCatalogController::class, 'destroy']);
+    });
 });
