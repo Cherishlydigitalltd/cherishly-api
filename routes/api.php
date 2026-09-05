@@ -11,6 +11,7 @@ use App\Http\Controllers\SecretSantaController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -184,5 +185,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::delete('/{wall}', [MemoryWallController::class, 'destroy']);
         Route::get('/{wall}/wishes', [MemoryWallController::class, 'wishes']);
         Route::delete('/{wall}/wishes/{wish}', [MemoryWallController::class, 'deleteWish']);
+    });
+
+    // Notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::get('/recent', [NotificationController::class, 'recent']);
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::put('/{id}/read', [NotificationController::class, 'markRead']);
+        Route::put('/read-all', [NotificationController::class, 'markAllRead']);
     });
 });

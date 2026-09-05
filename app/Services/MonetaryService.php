@@ -177,6 +177,16 @@ class MonetaryService
                         'reference' => $reference,
                         'status' => 'successful',
                     ]);
+
+                    $notificationService = app(\App\Services\NotificationService::class);
+                    $notificationService->create(
+                        $gift->user,
+                        'contribution',
+                        'New donation received!',
+                        ($contribution->is_anonymous ? 'Someone' : $contribution->donor_name) . " donated ₦" . number_format($contribution->amount, 2) . " to {$gift->title}.",
+                        "/dashboard/monetary/{$gift->id}",
+                        '💰'
+                    );
                 }
             }
 

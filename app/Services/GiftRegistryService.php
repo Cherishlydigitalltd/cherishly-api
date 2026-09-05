@@ -236,6 +236,17 @@ class GiftRegistryService
                         'reference' => $reference,
                         'status' => 'successful',
                     ]);
+
+                    $notificationService = app(\App\Services\NotificationService::class);
+                    $notificationService->create(
+                        $gift->registry->user,
+                        'contribution',
+                        'New contribution received!',
+                        ($contribution->is_anonymous ? 'Someone' : $contribution->donor_name) . " contributed ₦" . number_format($contribution->amount, 2) . " to {$gift->name}.",
+                        "/dashboard/registry/{$gift->registry_id}/gift/{$gift->id}",
+                        '🎁'
+                    );
+
                 }
             }
 
