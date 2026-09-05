@@ -45,6 +45,7 @@ Route::prefix('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::get('payment/verify/{reference}', [PaymentController::class, 'verify']);
+Route::post('contact', [App\Http\Controllers\SupportController::class, 'contact']);
 
 Route::prefix('public')->group(function () {
     // Gift Registries
@@ -76,7 +77,6 @@ Route::prefix('public')->group(function () {
     Route::get('walls/{token}/wishes', [MemoryWallController::class, 'publicWishes']);
     Route::post('walls/{token}/wishes', [MemoryWallController::class, 'addWish']);
 
-    Route::post('contact', [App\Http\Controllers\SupportController::class, 'contact']);
 });
 
 /*
