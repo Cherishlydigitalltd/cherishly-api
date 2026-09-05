@@ -75,6 +75,8 @@ Route::prefix('public')->group(function () {
     Route::get('walls/{token}', [MemoryWallController::class, 'publicShow']);
     Route::get('walls/{token}/wishes', [MemoryWallController::class, 'publicWishes']);
     Route::post('walls/{token}/wishes', [MemoryWallController::class, 'addWish']);
+
+    Route::post('contact', [App\Http\Controllers\SupportController::class, 'contact']);
 });
 
 /*
