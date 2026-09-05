@@ -82,7 +82,7 @@ class GiftRegistryService
     public function findByShareToken(string $token): ?GiftRegistry
     {
         return GiftRegistry::where('share_token', $token)
-            ->where('is_public', true)
+            // Remove ->where('is_public', true)
             ->with([
                 'gifts' => function ($q) {
                     $q->withCount('successfulContributions');
@@ -90,7 +90,6 @@ class GiftRegistryService
             ])
             ->first();
     }
-
     /* ────────────────────────────────────────────
      | GIFTS
      ──────────────────────────────────────────── */
