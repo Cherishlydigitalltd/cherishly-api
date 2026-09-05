@@ -11,18 +11,20 @@ class RegisterRequest extends FormRequest
     {
         return [
             'first_name' => ['required', 'string', 'max:100'],
-            'last_name'  => ['required', 'string', 'max:100'],
-            'email'      => ['required', 'email', 'unique:users,email'],
-            'password'   => ['required', 'string', 'min:8', 'confirmed'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'email.unique'         => 'An account with this email already exists.',
-            'password.confirmed'   => 'Passwords do not match.',
-            'password.min'         => 'Password must be at least 8 characters.',
+            'email.unique' => 'An account with this email already exists.',
+            'password.confirmed' => 'Passwords do not match.',
+            'phone.unique' => 'An account with this phone number already exists.',
+            'password.min' => 'Password must be at least 8 characters.',
         ];
     }
 }
