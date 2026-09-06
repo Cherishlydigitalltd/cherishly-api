@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminRegistryController;
 use App\Http\Controllers\Admin\AdminCatalogController;
+use App\Http\Controllers\Admin\AdminMonetaryController;
 
 
 /*
@@ -243,5 +244,11 @@ Route::prefix('admin')->group(function () {
         Route::post('catalog', [AdminCatalogController::class, 'store']);
         Route::put('catalog/{catalogGift}', [AdminCatalogController::class, 'update']);
         Route::delete('catalog/{catalogGift}', [AdminCatalogController::class, 'destroy']);
+
+
+
+        Route::get('monetary', [AdminMonetaryController::class, 'index']);
+        Route::get('monetary/{monetaryGift}', [AdminMonetaryController::class, 'show']);
+        Route::delete('monetary/{monetaryGift}', [AdminMonetaryController::class, 'destroy']);
     });
 });
