@@ -151,13 +151,16 @@ class GiftRegistryService
     {
         return DB::transaction(function () use ($gift, $data) {
 
-            // Check if gift is already fully funded
             if ($gift->is_fully_funded && $gift->type === 'physical') {
                 throw new \RuntimeException('This gift has already been fully funded.');
             }
 
-            // Generate unique reference
             $reference = 'CHR_GIFT_' . $gift->id . '_' . uniqid();
+
+            // ── Calculate fee ──
+            $feeService = app(\App\Services\FeeService::class);
+            $owner = $gift->registry->user;
+            $fee = $feeService->calculate((float) $data['amount'], $owner);
 
             $contribution = Contribution::create([
                 'gift_id' => $gift->id,
@@ -165,6 +168,11 @@ class GiftRegistryService
                 'donor_email' => $data['donor_email'],
                 'donor_phone' => $data['donor_phone'] ?? null,
                 'amount' => $data['amount'],
+                'gross_amount' => $fee['gross_amount'],
+                'net_amount' => $fee['net_amount'],
+                'fee_amount' => $fee['fee_amount'],
+                'fee_rate' => $fee['fee_rate'],
+                'fee_bearer' => $fee['fee_bearer'],
                 'bvn' => $data['bvn'] ?? null,
                 'payment_method' => $data['payment_method'],
                 'payment_status' => 'pending',
@@ -172,13 +180,11 @@ class GiftRegistryService
                 'is_anonymous' => $data['is_anonymous'] ?? false,
             ]);
 
-            // Initialize payment via gateway
             $gateway = app(\App\Services\GatewayService::class);
-
             $payment = $gateway->initializePayment([
                 'email' => $data['donor_email'],
                 'name' => $data['donor_name'],
-                'amount' => $data['amount'],
+                'amount' => $fee['charge_amount'], // ← charge gross amount to Paystack
                 'reference' => $reference,
                 'callback_url' => config('app.frontend_url') . '/payment/callback',
                 'metadata' => [
@@ -194,7 +200,10 @@ class GiftRegistryService
 
             return [
                 'contribution_id' => $contribution->id,
-                'amount' => $contribution->amount,
+                'amount' => $data['amount'],
+                'gross_amount' => $fee['gross_amount'],
+                'fee_amount' => $fee['fee_amount'],
+                'fee_bearer' => $fee['fee_bearer'],
                 'payment_method' => $contribution->payment_method,
                 'reference' => $reference,
                 'payment_url' => $payment['payment_url'],
@@ -202,7 +211,7 @@ class GiftRegistryService
         });
     }
 
-    public function confirmPayment(string $reference, string $status, array $meta = []): bool
+    public function confirmPayment1(string $reference, string $status, array $meta = []): bool
     {
         return DB::transaction(function () use ($reference, $status, $meta) {
             $contribution = Contribution::where('payment_reference', $reference)->first();
@@ -258,7 +267,81 @@ class GiftRegistryService
                         $gift->registry->name,
                         config('app.frontend_url') . '/dashboard/registry/' . $gift->registry_id . '/gift/' . $gift->id,
                     );
-                    
+
+                }
+            }
+
+            return true;
+        });
+    }
+
+    public function confirmPayment(string $reference, string $status, array $meta = []): bool
+    {
+        return DB::transaction(function () use ($reference, $status, $meta) {
+            $contribution = Contribution::where('payment_reference', $reference)->first();
+
+            if (!$contribution)
+                return false;
+
+            $contribution->update([
+                'payment_status' => $status,
+                'payment_meta' => $meta,
+            ]);
+
+            if ($status === 'successful') {
+                $gift = $contribution->gift;
+                $owner = $gift->registry->user;
+
+                // Use net_amount (what owner receives after fee) — fallback to amount if not set
+                $creditAmount = $contribution->net_amount ?? $contribution->amount;
+
+                $gift->increment('amount_contributed', $creditAmount);
+
+                // Credit registry owner's wallet
+                $wallet = $owner->wallet;
+                if ($wallet) {
+                    $wallet->increment('balance', $creditAmount);
+                    $wallet->increment('total_received', $creditAmount);
+
+                    // Log transaction with fee breakdown
+                    $wallet->transactions()->create([
+                        'user_id' => $wallet->user_id,
+                        'type' => 'credit',
+                        'amount' => $creditAmount,
+                        'description' => "Contribution for {$gift->name}" .
+                            ($contribution->fee_amount > 0
+                                ? " (fee: ₦" . number_format($contribution->fee_amount, 2) . " paid by {$contribution->fee_bearer})"
+                                : ''),
+                        'reference' => $reference,
+                        'status' => 'successful',
+                    ]);
+
+                    // In-app notification
+                    $notificationService = app(\App\Services\NotificationService::class);
+                    $notificationService->create(
+                        $owner,
+                        'contribution',
+                        'New contribution received!',
+                        ($contribution->is_anonymous ? 'Someone' : $contribution->donor_name) .
+                        " contributed ₦" . number_format($contribution->gross_amount ?? $contribution->amount, 2) .
+                        " to {$gift->name}." .
+                        ($contribution->fee_bearer === 'owner' && $contribution->fee_amount > 0
+                            ? " (₦" . number_format($contribution->fee_amount, 2) . " fee deducted)"
+                            : ''),
+                        "/dashboard/registry/{$gift->registry_id}/gift/{$gift->id}",
+                        '🎁'
+                    );
+
+                    // Email notification
+                    $donorName = $contribution->is_anonymous ? 'Anonymous' : $contribution->donor_name;
+                    \App\Jobs\SendContributionEmail::dispatch(
+                        $owner,
+                        $donorName,
+                        (float) $creditAmount,
+                        $gift->name,
+                        $gift->registry->name,
+                        config('app.frontend_url') . '/dashboard/registry/' . $gift->registry_id . '/gift/' . $gift->id,
+                    );
                 }
             }
 

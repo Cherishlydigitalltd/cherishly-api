@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminRegistryController;
 use App\Http\Controllers\Admin\AdminCatalogController;
 use App\Http\Controllers\Admin\AdminMonetaryController;
+use App\Http\Controllers\SettingsController;
 
 
 /*
@@ -206,6 +207,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     });
 
     Route::post('support', [App\Http\Controllers\SupportController::class, 'submit']);
+
+    Route::get('settings/fees', [SettingsController::class, 'show']);
+    Route::put('settings/fees', [SettingsController::class, 'updateFeeBearer']);
 });
 
 /*
@@ -250,5 +254,10 @@ Route::prefix('admin')->group(function () {
         Route::get('monetary', [AdminMonetaryController::class, 'index']);
         Route::get('monetary/{monetaryGift}', [AdminMonetaryController::class, 'show']);
         Route::delete('monetary/{monetaryGift}', [AdminMonetaryController::class, 'destroy']);
+
+
+        Route::get('settings/fee-rate', [AdminDashboardController::class, 'getGlobalFeeRate']);
+        Route::put('settings/fee-rate', [AdminDashboardController::class, 'updateGlobalFeeRate']);
+        Route::put('users/{user}/fee-rate', [AdminUserController::class, 'updateFeeRate']);
     });
 });

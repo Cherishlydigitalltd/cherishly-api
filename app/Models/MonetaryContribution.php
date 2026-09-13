@@ -21,6 +21,11 @@ class MonetaryContribution extends Model
         'payment_status',
         'is_anonymous',
         'payment_meta',
+        'gross_amount',
+        'net_amount',
+        'fee_amount',
+        'fee_rate',
+        'fee_bearer',
     ];
 
     protected $casts = [

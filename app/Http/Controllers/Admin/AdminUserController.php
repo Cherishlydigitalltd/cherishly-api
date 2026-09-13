@@ -54,4 +54,17 @@ class AdminUserController extends Controller
         $user->delete();
         return ApiResponse::success('User deleted successfully.');
     }
+
+
+    // Add to AdminUserController
+    public function updateFeeRate(Request $request, User $user): JsonResponse
+    {
+        $request->validate([
+            'transaction_fee_rate' => ['nullable', 'numeric', 'min:0', 'max:10'],
+        ]);
+
+        $user->update(['transaction_fee_rate' => $request->transaction_fee_rate]);
+
+        return ApiResponse::success('User fee rate updated.');
+    }
 }

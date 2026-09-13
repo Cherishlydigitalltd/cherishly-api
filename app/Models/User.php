@@ -23,6 +23,8 @@ class User extends Authenticatable
         'is_phone_verified',
         'is_active',
         'email_verified_at',
+        'transaction_fee_rate',
+        'fee_bearer',
     ];
 
     protected $hidden = [
@@ -36,6 +38,7 @@ class User extends Authenticatable
         'is_phone_verified' => 'boolean',
         'is_active' => 'boolean',
         'password' => 'hashed',
+        'transaction_fee_rate' => 'decimal:2',
     ];
 
     protected $appends = ['full_name'];
