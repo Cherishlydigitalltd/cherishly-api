@@ -17,6 +17,29 @@ class SettingSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
+
+            [
+                'key' => 'withdrawal_fee_rate',
+                'value' => '1',
+                'description' => 'Withdrawal fee percentage (e.g. 1 = 1%)',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'key' => 'withdrawal_fee_min',
+                'value' => '50',
+                'description' => 'Minimum withdrawal fee in naira',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'key' => 'withdrawal_fee_cap',
+                'value' => '2000',
+                'description' => 'Maximum withdrawal fee cap in naira',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+
         ];
 
         foreach ($settings as $setting) {

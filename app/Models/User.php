@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email_verified_at',
         'transaction_fee_rate',
         'fee_bearer',
+        'withdrawal_fee_rate',
     ];
 
     protected $hidden = [
@@ -39,6 +40,7 @@ class User extends Authenticatable
         'is_active' => 'boolean',
         'password' => 'hashed',
         'transaction_fee_rate' => 'decimal:2',
+        'withdrawal_fee_rate' => 'decimal:2',
     ];
 
     protected $appends = ['full_name'];

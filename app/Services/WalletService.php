@@ -131,8 +131,12 @@ class WalletService
             ];
         }
 
-        // Validate sufficient balance
-        if ($wallet->balance < $amount) {
+        // Calculate fee
+        $feeService = app(\App\Services\FeeService::class);
+        $fee = $feeService->calculateWithdrawalFee($amount, $user);
+
+        // Validate sufficient balance (check gross amount)
+        if ($wallet->balance < $fee['gross_amount']) {
             return ['success' => false, 'message' => 'Insufficient balance.'];
         }
 
@@ -149,26 +153,31 @@ class WalletService
             ];
         }
 
-        return DB::transaction(function () use ($wallet, $user, $amount) {
+        return DB::transaction(function () use ($wallet, $user, $amount, $fee) {
             $reference = 'WD-' . strtoupper(uniqid());
 
-            // Deduct balance immediately (hold funds)
-            $wallet->decrement('balance', $amount);
+            // Deduct full gross amount from balance
+            $wallet->decrement('balance', $fee['gross_amount']);
 
-            // Create pending transaction
+            // Create pending transaction with fee breakdown
             $transaction = $wallet->transactions()->create([
                 'user_id' => $user->id,
                 'type' => 'debit',
-                'amount' => $amount,
-                'description' => 'Withdrawal to ' . $wallet->bank_name . ' (' . $wallet->account_number . ')',
+                'amount' => $fee['gross_amount'],
+                'gross_amount' => $fee['gross_amount'],
+                'net_amount' => $fee['net_amount'],
+                'fee_amount' => $fee['fee_amount'],
+                'fee_rate' => $fee['fee_rate'],
+                'description' => 'Withdrawal to ' . $wallet->bank_name . ' (' . $wallet->account_number . ')'
+                    . ($fee['fee_amount'] > 0 ? ' — fee: ₦' . number_format($fee['fee_amount'], 2) : ''),
                 'reference' => $reference,
                 'status' => 'pending',
             ]);
 
-            // Call gateway to initiate bank transfer
+            // Send net amount to gateway (what user actually receives)
             $result = $this->gatewayService->initiateWithdrawal([
                 'reference' => $reference,
-                'amount' => $amount,
+                'amount' => $fee['net_amount'], // ← send net amount
                 'account_number' => $wallet->account_number,
                 'account_name' => $wallet->account_name,
                 'bank_code' => $wallet->bank_code,
@@ -178,7 +187,7 @@ class WalletService
 
             // Gateway failed — reverse the deduction
             if (!$result['success']) {
-                $wallet->increment('balance', $amount);
+                $wallet->increment('balance', $fee['gross_amount']);
                 $transaction->update(['status' => 'failed']);
 
                 Log::error('Withdrawal gateway failed', [
@@ -195,7 +204,10 @@ class WalletService
                 'success' => true,
                 'message' => 'Withdrawal initiated. You will receive funds within 24 hours.',
                 'reference' => $reference,
-                'amount' => $amount,
+                'amount' => $fee['gross_amount'],
+                'fee_amount' => $fee['fee_amount'],
+                'net_amount' => $fee['net_amount'],
+                'fee_waived' => $fee['fee_rate'] === 0,
             ];
         });
     }

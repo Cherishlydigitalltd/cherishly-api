@@ -259,5 +259,10 @@ Route::prefix('admin')->group(function () {
         Route::get('settings/fee-rate', [AdminDashboardController::class, 'getGlobalFeeRate']);
         Route::put('settings/fee-rate', [AdminDashboardController::class, 'updateGlobalFeeRate']);
         Route::put('users/{user}/fee-rate', [AdminUserController::class, 'updateFeeRate']);
+
+        // Admin routes
+        Route::get('settings/withdrawal-fee', [AdminDashboardController::class, 'getWithdrawalFeeSettings']);
+        Route::put('settings/withdrawal-fee', [AdminDashboardController::class, 'updateWithdrawalFeeSettings']);
+        Route::put('users/{user}/withdrawal-fee-rate', [AdminUserController::class, 'updateWithdrawalFeeRate']);
     });
 });

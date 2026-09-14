@@ -67,4 +67,15 @@ class AdminUserController extends Controller
 
         return ApiResponse::success('User fee rate updated.');
     }
+
+    public function updateWithdrawalFeeRate(Request $request, User $user): JsonResponse
+    {
+        $request->validate([
+            'withdrawal_fee_rate' => ['nullable', 'numeric', 'min:0', 'max:10'],
+        ]);
+
+        $user->update(['withdrawal_fee_rate' => $request->withdrawal_fee_rate]);
+
+        return ApiResponse::success('User withdrawal fee rate updated.');
+    }
 }
