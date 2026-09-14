@@ -99,4 +99,40 @@ class AdminDashboardController extends Controller
 
         return ApiResponse::success('Global fee rate updated successfully.');
     }
+
+    public function getWithdrawalFeeSettings(): JsonResponse
+    {
+        $settings = DB::table('settings')
+            ->whereIn('key', ['withdrawal_fee_rate', 'withdrawal_fee_min', 'withdrawal_fee_cap'])
+            ->pluck('value', 'key');
+
+        return ApiResponse::success('Withdrawal fee settings retrieved.', [
+            'rate' => (float) ($settings['withdrawal_fee_rate'] ?? 1.0),
+            'min' => (float) ($settings['withdrawal_fee_min'] ?? 50),
+            'cap' => (float) ($settings['withdrawal_fee_cap'] ?? 2000),
+        ]);
+    }
+
+    public function updateWithdrawalFeeSettings(Request $request): JsonResponse
+    {
+        $request->validate([
+            'rate' => ['required', 'numeric', 'min:0', 'max:10'],
+            'min' => ['required', 'numeric', 'min:0'],
+            'cap' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $updates = [
+            'withdrawal_fee_rate' => $request->rate,
+            'withdrawal_fee_min' => $request->min,
+            'withdrawal_fee_cap' => $request->cap,
+        ];
+
+        foreach ($updates as $key => $value) {
+            DB::table('settings')
+                ->where('key', $key)
+                ->update(['value' => (string) $value, 'updated_at' => now()]);
+        }
+
+        return ApiResponse::success('Withdrawal fee settings updated successfully.');
+    }
 }
