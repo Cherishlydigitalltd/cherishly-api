@@ -80,7 +80,7 @@ class MonetaryService
         return MonetaryGift::where('share_token', $token)
             ->where('is_active', true)
             ->with([
-                'user:id,first_name,last_name',
+                'user:id,first_name,last_name,fee_bearer,transaction_fee_rate',
                 'successfulContributions' => function ($q) {
                     $q->select(['id', 'monetary_gift_id', 'donor_name', 'amount', 'is_anonymous', 'created_at'])
                         ->latest()
@@ -96,16 +96,25 @@ class MonetaryService
     {
         return DB::transaction(function () use ($gift, $data) {
 
-            // Generate unique reference
             $reference = 'CHR_MON_' . $gift->id . '_' . uniqid();
 
-            // Create pending contribution
+            // ── Calculate fee ──
+            $feeService = app(\App\Services\FeeService::class);
+            $owner = $gift->user;
+            $fee = $feeService->calculate((float) $data['amount'], $owner);
+
+            // Create pending contribution with fee breakdown
             $contribution = MonetaryContribution::create([
                 'monetary_gift_id' => $gift->id,
                 'donor_name' => $data['donor_name'],
                 'donor_email' => $data['donor_email'],
                 'donor_phone' => $data['donor_phone'] ?? null,
                 'amount' => $data['amount'],
+                'gross_amount' => $fee['gross_amount'],
+                'net_amount' => $fee['net_amount'],
+                'fee_amount' => $fee['fee_amount'],
+                'fee_rate' => $fee['fee_rate'],
+                'fee_bearer' => $fee['fee_bearer'],
                 'bvn' => $data['bvn'] ?? null,
                 'payment_method' => $data['payment_method'],
                 'payment_status' => 'pending',
@@ -113,13 +122,13 @@ class MonetaryService
                 'is_anonymous' => $data['is_anonymous'] ?? false,
             ]);
 
-            // Initialize payment via gateway
+            // Initialize payment via gateway — charge gross_amount
             $gateway = app(\App\Services\GatewayService::class);
 
             $payment = $gateway->initializePayment([
                 'email' => $data['donor_email'],
                 'name' => $data['donor_name'],
-                'amount' => $data['amount'],
+                'amount' => $fee['charge_amount'], // ← gross amount to Paystack
                 'reference' => $reference,
                 'callback_url' => config('app.frontend_url') . '/payment/callback',
                 'metadata' => [
@@ -135,14 +144,16 @@ class MonetaryService
 
             return [
                 'contribution_id' => $contribution->id,
-                'amount' => $contribution->amount,
+                'amount' => $data['amount'],
+                'gross_amount' => $fee['gross_amount'],
+                'fee_amount' => $fee['fee_amount'],
+                'fee_bearer' => $fee['fee_bearer'],
                 'payment_method' => $contribution->payment_method,
                 'reference' => $reference,
                 'payment_url' => $payment['payment_url'],
             ];
         });
     }
-
 
     /* ── Confirm payment ── */
 
@@ -161,39 +172,54 @@ class MonetaryService
 
             if ($status === 'successful') {
                 $gift = $contribution->monetaryGift;
-                $gift->increment('amount_raised', $contribution->amount);
+                $owner = $gift->user;
+
+                // Use net_amount — what owner receives after fee deduction
+                $creditAmount = $contribution->net_amount ?? $contribution->amount;
+
+                $gift->increment('amount_raised', $creditAmount);
 
                 // Credit owner's wallet
-                $wallet = $gift->user->wallet;
+                $wallet = $owner->wallet;
                 if ($wallet) {
-                    $wallet->increment('balance', $contribution->amount);
-                    $wallet->increment('total_received', $contribution->amount);
+                    $wallet->increment('balance', $creditAmount);
+                    $wallet->increment('total_received', $creditAmount);
 
+                    // Log transaction with fee breakdown
                     $wallet->transactions()->create([
                         'user_id' => $wallet->user_id,
                         'type' => 'credit',
-                        'amount' => $contribution->amount,
-                        'description' => "Donation for {$gift->title}",
+                        'amount' => $creditAmount,
+                        'description' => "Donation for {$gift->title}" .
+                            ($contribution->fee_amount > 0
+                                ? " (fee: ₦" . number_format($contribution->fee_amount, 2) . " paid by {$contribution->fee_bearer})"
+                                : ''),
                         'reference' => $reference,
                         'status' => 'successful',
                     ]);
 
+                    // In-app notification
                     $notificationService = app(\App\Services\NotificationService::class);
                     $notificationService->create(
-                        $gift->user,
+                        $owner,
                         'contribution',
                         'New donation received!',
-                        ($contribution->is_anonymous ? 'Someone' : $contribution->donor_name) . " donated ₦" . number_format($contribution->amount, 2) . " to {$gift->title}.",
+                        ($contribution->is_anonymous ? 'Someone' : $contribution->donor_name) .
+                        " donated ₦" . number_format($contribution->gross_amount ?? $contribution->amount, 2) .
+                        " to {$gift->title}." .
+                        ($contribution->fee_bearer === 'owner' && $contribution->fee_amount > 0
+                            ? " (₦" . number_format($contribution->fee_amount, 2) . " fee deducted)"
+                            : ''),
                         "/dashboard/monetary/{$gift->id}",
                         '💰'
                     );
 
-                    // ── Send email notification ──
+                    // Email notification
                     $donorName = $contribution->is_anonymous ? 'Anonymous' : $contribution->donor_name;
                     \App\Jobs\SendMonetaryContributionEmail::dispatch(
-                        $gift->user,
+                        $owner,
                         $donorName,
-                        (float) $contribution->amount,
+                        (float) $creditAmount,
                         $gift->title,
                         config('app.frontend_url') . '/dashboard/monetary/' . $gift->id,
                     );
@@ -213,6 +239,10 @@ class MonetaryService
                 'id',
                 'donor_name',
                 'amount',
+                'gross_amount',
+                'net_amount',
+                'fee_amount',
+                'fee_bearer',
                 'is_anonymous',
                 'created_at',
                 DB::raw("CASE WHEN is_anonymous = true THEN 'Anonymous' ELSE donor_name END as display_name"),
