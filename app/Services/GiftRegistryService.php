@@ -275,7 +275,7 @@ class GiftRegistryService
         });
     }
 
-    public function confirmPayment(string $reference, string $status, array $meta = []): bool
+    public function confirmPaymentAlt(string $reference, string $status, array $meta = []): bool
     {
         return DB::transaction(function () use ($reference, $status, $meta) {
             $contribution = Contribution::where('payment_reference', $reference)->first();
@@ -328,6 +328,83 @@ class GiftRegistryService
                         ($contribution->fee_bearer === 'owner' && $contribution->fee_amount > 0
                             ? " (₦" . number_format($contribution->fee_amount, 2) . " fee deducted)"
                             : ''),
+                        "/dashboard/registry/{$gift->registry_id}/gift/{$gift->id}",
+                        '🎁'
+                    );
+
+                    // Email notification
+                    $donorName = $contribution->is_anonymous ? 'Anonymous' : $contribution->donor_name;
+                    \App\Jobs\SendContributionEmail::dispatch(
+                        $owner,
+                        $donorName,
+                        (float) $creditAmount,
+                        $gift->name,
+                        $gift->registry->name,
+                        config('app.frontend_url') . '/dashboard/registry/' . $gift->registry_id . '/gift/' . $gift->id,
+                    );
+                }
+            }
+
+            return true;
+        });
+    }
+
+    public function confirmPayment(string $reference, string $status, array $meta = []): bool
+    {
+        return DB::transaction(function () use ($reference, $status, $meta) {
+            $contribution = Contribution::where('payment_reference', $reference)->first();
+
+            if (!$contribution)
+                return false;
+
+            $contribution->update([
+                'payment_status' => $status,
+                'payment_meta' => $meta,
+            ]);
+
+            if ($status === 'successful') {
+                $gift = $contribution->gift;
+                $owner = $gift->registry->user;
+
+                $creditAmount = $contribution->net_amount ?? $contribution->amount;
+                $availableAt = now()->addDay(); // T+1
+
+                $gift->increment('amount_contributed', $creditAmount);
+
+                $wallet = $owner->wallet;
+                if ($wallet) {
+                    // Increment total balance and pending — NOT available_balance yet
+                    $wallet->increment('balance', $creditAmount);
+                    $wallet->increment('total_received', $creditAmount);
+                    $wallet->increment('pending_settlement', $creditAmount);
+
+                    // Log transaction with T+1 settlement time
+                    $wallet->transactions()->create([
+                        'user_id' => $wallet->user_id,
+                        'type' => 'credit',
+                        'amount' => $creditAmount,
+                        'description' => "Contribution for {$gift->name}" .
+                            ($contribution->fee_amount > 0
+                                ? " (fee: ₦" . number_format($contribution->fee_amount, 2) . " paid by {$contribution->fee_bearer})"
+                                : ''),
+                        'reference' => $reference,
+                        'status' => 'successful',
+                        'available_at' => $availableAt,
+                    ]);
+
+                    // In-app notification
+                    $notificationService = app(\App\Services\NotificationService::class);
+                    $notificationService->create(
+                        $owner,
+                        'contribution',
+                        'New contribution received!',
+                        ($contribution->is_anonymous ? 'Someone' : $contribution->donor_name) .
+                        " contributed ₦" . number_format($contribution->gross_amount ?? $contribution->amount, 2) .
+                        " to {$gift->name}." .
+                        ($contribution->fee_bearer === 'owner' && $contribution->fee_amount > 0
+                            ? " (₦" . number_format($contribution->fee_amount, 2) . " fee deducted)"
+                            : '') .
+                        " Funds available for withdrawal by " . $availableAt->format('M j, Y') . ".",
                         "/dashboard/registry/{$gift->registry_id}/gift/{$gift->id}",
                         '🎁'
                     );

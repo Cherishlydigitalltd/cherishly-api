@@ -50,7 +50,10 @@ class WalletService
 
         return [
             'balance' => $wallet->balance,
+            'available_balance' => $wallet->available_balance,
+            'pending_settlement' => $wallet->pending_amount,
             'total_received' => $wallet->total_received,
+            'total_withdrawn' => $wallet->total_withdrawn,
             'bank_details' => [
                 'bank_name' => $wallet->bank_name,
                 'account_number' => $wallet->account_number,
@@ -118,7 +121,7 @@ class WalletService
 
     /* ── Withdraw ── */
 
-    public function withdraw(User $user, float $amount): array
+    public function withdraw1(User $user, float $amount): array
     {
         $wallet = $this->getWallet($user);
 
@@ -212,6 +215,112 @@ class WalletService
         });
     }
 
+    public function withdraw(User $user, float $amount): array
+    {
+        $wallet = $this->getWallet($user);
+
+        // Validate minimum withdrawal
+        $minWithdrawal = (float) setting('min_withdrawal', 1000);
+        if ($amount < $minWithdrawal) {
+            return [
+                'success' => false,
+                'message' => 'Minimum withdrawal amount is ₦' . number_format($minWithdrawal, 2),
+            ];
+        }
+
+        // Calculate fee
+        $feeService = app(\App\Services\FeeService::class);
+        $fee = $feeService->calculateWithdrawalFee($amount, $user);
+
+        // Validate sufficient AVAILABLE balance (T+1 check)
+        if ($wallet->available_balance < $fee['gross_amount']) {
+            $pending = (float) $wallet->balance - (float) $wallet->available_balance;
+            $availableDate = now()->addDay()->format('M j, Y');
+
+            if ($pending > 0) {
+                return [
+                    'success' => false,
+                    'message' => "You have ₦" . number_format($pending, 2) . " pending settlement. It will be available for withdrawal by {$availableDate}.",
+                ];
+            }
+
+            return ['success' => false, 'message' => 'Insufficient available balance.'];
+        }
+
+        // Daily withdrawal limit
+        $limitCheck = $this->checkDailyWithdrawalLimit($wallet, $amount);
+        if (!$limitCheck['success'])
+            return $limitCheck;
+
+        // Validate bank details exist
+        if (!$wallet->account_number || !$wallet->bank_code) {
+            return [
+                'success' => false,
+                'message' => 'Please add your bank details before withdrawing.',
+            ];
+        }
+
+        return DB::transaction(function () use ($wallet, $user, $amount, $fee) {
+            $reference = 'WD-' . strtoupper(uniqid());
+
+            // Deduct from both balance and available_balance
+            $wallet->decrement('balance', $fee['gross_amount']);
+            $wallet->decrement('available_balance', $fee['gross_amount']);
+
+            // Create pending transaction with fee breakdown
+            $transaction = $wallet->transactions()->create([
+                'user_id' => $user->id,
+                'type' => 'debit',
+                'amount' => $fee['gross_amount'],
+                'gross_amount' => $fee['gross_amount'],
+                'net_amount' => $fee['net_amount'],
+                'fee_amount' => $fee['fee_amount'],
+                'fee_rate' => $fee['fee_rate'],
+                'description' => 'Withdrawal to ' . $wallet->bank_name . ' (' . $wallet->account_number . ')'
+                    . ($fee['fee_amount'] > 0 ? ' — fee: ₦' . number_format($fee['fee_amount'], 2) : ''),
+                'reference' => $reference,
+                'status' => 'pending',
+            ]);
+
+            // Send net amount to gateway
+            $result = $this->gatewayService->initiateWithdrawal([
+                'reference' => $reference,
+                'amount' => $fee['net_amount'],
+                'account_number' => $wallet->account_number,
+                'account_name' => $wallet->account_name,
+                'bank_code' => $wallet->bank_code,
+                'bank_name' => $wallet->bank_name,
+                'narration' => 'Cherishly wallet withdrawal',
+            ]);
+
+            // Gateway failed — reverse both deductions
+            if (!$result['success']) {
+                $wallet->increment('balance', $fee['gross_amount']);
+                $wallet->increment('available_balance', $fee['gross_amount']);
+                $transaction->update(['status' => 'failed']);
+
+                Log::error('Withdrawal gateway failed', [
+                    'reference' => $reference,
+                    'user_id' => $user->id,
+                    'amount' => $amount,
+                    'error' => $result['message'],
+                ]);
+
+                return ['success' => false, 'message' => $result['message']];
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Withdrawal initiated. You will receive funds within 24 hours.',
+                'reference' => $reference,
+                'amount' => $fee['gross_amount'],
+                'fee_amount' => $fee['fee_amount'],
+                'net_amount' => $fee['net_amount'],
+                'fee_waived' => $fee['fee_rate'] === 0,
+            ];
+        });
+    }
+
     /* ── Confirm withdrawal (called by webhook) ── */
 
     public function confirmWithdrawal(string $reference, string $status): bool
@@ -225,7 +334,14 @@ class WalletService
                 return false;
 
             if ($status === 'failed') {
+                // Reverse both balance and available_balance
                 $transaction->wallet->increment('balance', $transaction->amount);
+                $transaction->wallet->increment('available_balance', $transaction->amount);
+            }
+
+            if ($status === 'successful') {
+                // Track total withdrawn
+                $transaction->wallet->increment('total_withdrawn', $transaction->amount);
             }
 
             $transaction->update(['status' => $status]);

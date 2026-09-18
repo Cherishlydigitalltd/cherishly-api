@@ -14,21 +14,26 @@ class Transaction extends Model
         'user_id',
         'type',
         'amount',
-        'gross_amount',      
-        'net_amount',        
-        'fee_amount',        
-        'fee_rate',         
+        'gross_amount',
+        'net_amount',
+        'fee_amount',
+        'fee_rate',
         'description',
         'reference',
         'status',
+        'available_at',
+        'settled_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
-        'gross_amount' => 'decimal:2',  
-        'net_amount' => 'decimal:2', 
-        'fee_amount' => 'decimal:2',  
-        'fee_rate' => 'decimal:2',  
+        'gross_amount' => 'decimal:2',
+        'net_amount' => 'decimal:2',
+        'fee_amount' => 'decimal:2',
+        'fee_rate' => 'decimal:2',
+        'available_at' => 'datetime',
+        'settled_at' => 'datetime',
+
     ];
 
     /* ── Relationships ── */
