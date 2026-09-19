@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\AdminRegistryController;
 use App\Http\Controllers\Admin\AdminCatalogController;
 use App\Http\Controllers\Admin\AdminMonetaryController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\PublicController;
 
 
 /*
@@ -55,6 +56,7 @@ Route::prefix('auth')->group(function () {
 */
 Route::get('payment/verify/{reference}', [PaymentController::class, 'verify']);
 Route::post('contact', [App\Http\Controllers\SupportController::class, 'contact'])->middleware('throttle:contact');
+Route::get('/public/stats', [PublicController::class, 'stats']);
 
 Route::prefix('public')->group(function () {
     // Gift Registries
