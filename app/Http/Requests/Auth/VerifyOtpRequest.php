@@ -14,7 +14,8 @@ class VerifyOtpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email', 'exists:users,email'],
+            // No exists:users rule: it would tell callers which emails have accounts.
+            'email' => ['required', 'email'],
             'otp'   => ['required', 'string', 'size:6'],
         ];
     }

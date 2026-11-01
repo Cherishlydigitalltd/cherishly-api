@@ -88,7 +88,9 @@ class InvitationController extends Controller
         $this->authorizeOwner($request, $invitation);
 
         $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,xlsx,xls', 'max:10240'],
+            // Only CSV can be read here; Excel files are parsed in the browser
+            // and sent as JSON to addGuests instead.
+            'file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
         ]);
 
         $guests = $this->invitationService->importGuests($invitation, $request->file('file'));
@@ -125,7 +127,8 @@ class InvitationController extends Controller
     {
         $this->authorizeOwner($request, $invitation);
         $count = $this->invitationService->sendInvitations($invitation);
-        return ApiResponse::success("Invitations sent to {$count} guests.");
+        $guests = $count === 1 ? 'guest' : 'guests';
+        return ApiResponse::success("Invitations sent to {$count} {$guests}.");
     }
 
     /**
@@ -138,6 +141,27 @@ class InvitationController extends Controller
         $this->authorizeGuest($guest, $invitation);
         $guest = $this->invitationService->checkIn($guest);
         return ApiResponse::success('Guest checked in successfully.', $guest);
+    }
+
+    /**
+     * POST /api/invitations/{id}/checkin-qr
+     * Check in a guest by scanning their pass at the door.
+     */
+    public function checkInByQr(Request $request, Invitation $invitation): JsonResponse
+    {
+        $this->authorizeOwner($request, $invitation);
+        $request->validate(['code' => ['required', 'string', 'max:500']]);
+
+        $outcome = $this->invitationService->checkInByCode($invitation, $request->code);
+
+        if ($outcome['result'] === 'not_found') {
+            return ApiResponse::error('This pass isn’t on this guest list.', null, 404);
+        }
+
+        return ApiResponse::success(
+            $outcome['result'] === 'checked_in' ? 'Guest checked in.' : 'Guest is already checked in.',
+            ['result' => $outcome['result'], 'guest' => $outcome['guest']]
+        );
     }
 
     /**
@@ -156,7 +180,7 @@ class InvitationController extends Controller
     /**
      * GET /api/public/invitations/{token}
      */
-    public function publicShow(string $token): JsonResponse
+    public function publicShow(Request $request, string $token): JsonResponse
     {
         $invitation = $this->invitationService->findByToken($token);
 
@@ -164,7 +188,14 @@ class InvitationController extends Controller
             return ApiResponse::notFound('Invitation not found.');
         }
 
+        // ?guest=<code> from the guest's own email link: greet them by name.
+        $guest = $this->invitationService->findGuestByRsvpToken($invitation, $request->query('guest'));
+
         return ApiResponse::success('Invitation retrieved.', [
+            'guest'        => $guest ? [
+                'full_name'   => $guest->full_name,
+                'rsvp_status' => $guest->rsvp_status,
+            ] : null,
             'id'           => $invitation->id,
             'title'        => $invitation->title,
             'description'  => $invitation->description,
@@ -199,7 +230,7 @@ class InvitationController extends Controller
     /**
      * POST /api/public/invitations/{token}/rsvp/{guestId}
      */
-    public function rsvp(RsvpRequest $request, string $token, InvitationGuest $guest): JsonResponse
+    public function rsvp(RsvpRequest $request, string $token, string $guestCode): JsonResponse
     {
         $invitation = $this->invitationService->findByToken($token);
 
@@ -211,8 +242,14 @@ class InvitationController extends Controller
             return ApiResponse::error('RSVP deadline has passed.');
         }
 
-        if ($guest->invitation_id !== $invitation->id) {
-            return ApiResponse::error('Invalid guest for this invitation.');
+        $guest = $this->invitationService->findGuestByRsvpToken($invitation, $guestCode);
+
+        if (!$guest) {
+            return ApiResponse::error(
+                'This RSVP link isn’t valid. Please use the link from your invitation email.',
+                null,
+                404
+            );
         }
 
         $guest = $this->invitationService->rsvp(
@@ -225,6 +262,9 @@ class InvitationController extends Controller
             'guest'       => $guest->full_name,
             'rsvp_status' => $guest->rsvp_status,
             'qr_token'    => $guest->qr_token,
+            'pass_url'    => $guest->rsvp_status === 'attending'
+                ? config('app.frontend_url') . '/pass/' . $guest->qr_token
+                : null,
             'event'       => $invitation->title,
         ]);
     }

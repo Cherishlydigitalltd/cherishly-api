@@ -160,10 +160,16 @@ class MonetaryService
     public function confirmPayment(string $reference, string $status, array $meta = []): bool
     {
         return DB::transaction(function () use ($reference, $status, $meta) {
-            $contribution = MonetaryContribution::where('payment_reference', $reference)->first();
+            $contribution = MonetaryContribution::where('payment_reference', $reference)->lockForUpdate()->first();
 
             if (!$contribution)
                 return false;
+
+            // Gateways resend webhooks. Once a payment has been credited, a
+            // repeat must not credit the wallet (or the gift) a second time.
+            if ($contribution->payment_status === 'successful') {
+                return true;
+            }
 
             $contribution->update([
                 'payment_status' => $status,

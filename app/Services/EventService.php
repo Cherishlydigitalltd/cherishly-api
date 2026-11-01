@@ -136,6 +136,15 @@ class EventService
         ];
     }
 
+    /* ── Guest by the private code in their RSVP link ── */
+    public function findGuestByCode(Event $event, string $code): ?EventGuest
+    {
+        if (strlen($code) < 20) {
+            return null;
+        }
+        return $event->guests()->where('rsvp_token', $code)->first();
+    }
+
     /* ── Find by share token ── */
     public function findByToken(string $token): ?Event
     {

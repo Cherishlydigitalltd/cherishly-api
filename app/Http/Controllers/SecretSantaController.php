@@ -187,19 +187,17 @@ class SecretSantaController extends Controller
             return ApiResponse::error('Matches have not been generated yet.', null, 422);
         }
 
-        $identifier = trim($request->identifier);
+        // Code only: matching by email let anyone who knew a friend's
+        // address see who that friend was buying for.
+        $identifier = strtoupper(preg_replace('/\s+/', '', $request->identifier));
 
-        // Find participant by code or email
         $participant = $santa->participants()
             ->with('assignedTo')
-            ->where(function ($q) use ($identifier) {
-                $q->where('code', $identifier)
-                    ->orWhere('email', $identifier);
-            })
+            ->where('code', $identifier)
             ->first();
 
         if (!$participant) {
-            return ApiResponse::error('No participant found with that code or email.', null, 404);
+            return ApiResponse::error('That code doesn’t match anyone in this Secret Santa.', null, 404);
         }
 
         if (!$participant->assignedTo) {

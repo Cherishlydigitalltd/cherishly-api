@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Contribution;
+use App\Models\CatalogGift;
 use App\Models\Gift;
 use App\Models\GiftRegistry;
 use App\Models\User;
@@ -108,6 +109,8 @@ class GiftRegistryService
 
         if (!empty($data['image']) && $data['image'] instanceof UploadedFile) {
             $imageUrl = $this->assetService->upload($data['image'], 'gifts');
+        } elseif (!empty($data['catalog_gift_id'])) {
+            $imageUrl = CatalogGift::find($data['catalog_gift_id'])?->image;
         }
 
         return Gift::create([
@@ -352,10 +355,16 @@ class GiftRegistryService
     public function confirmPayment(string $reference, string $status, array $meta = []): bool
     {
         return DB::transaction(function () use ($reference, $status, $meta) {
-            $contribution = Contribution::where('payment_reference', $reference)->first();
+            $contribution = Contribution::where('payment_reference', $reference)->lockForUpdate()->first();
 
             if (!$contribution)
                 return false;
+
+            // Gateways resend webhooks. Once a payment has been credited, a
+            // repeat must not credit the wallet (or the gift) a second time.
+            if ($contribution->payment_status === 'successful') {
+                return true;
+            }
 
             $contribution->update([
                 'payment_status' => $status,

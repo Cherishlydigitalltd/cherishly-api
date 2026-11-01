@@ -40,7 +40,13 @@ class AuthController extends Controller
      */
     public function verifyEmail(VerifyOtpRequest $request): JsonResponse
     {
-        $user = \App\Models\User::where('email', $request->email)->firstOrFail();
+        $user = \App\Models\User::where('email', $request->email)->first();
+
+        if (!$user) {
+            // Same reply as a real account with no pending code.
+            return ApiResponse::error('No OTP found. Please request a new one.');
+        }
+
         $result = $this->authService->verifyEmail($user, $request->otp);
 
         if (!$result['success']) {

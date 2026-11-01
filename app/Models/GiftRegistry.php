@@ -18,6 +18,7 @@ class GiftRegistry extends Model
         'cover_photo',
         'is_public',
         'share_token',
+        'event_id',
     ];
 
     protected $casts = [

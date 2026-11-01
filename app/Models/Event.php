@@ -13,16 +13,51 @@ class Event extends Model
     protected $fillable = [
         'user_id', 'title', 'description', 'cover_photo',
         'share_token', 'event_date', 'venue', 'is_active',
+        'slug', 'event_type', 'headline', 'start_time', 'venue_address',
+        'map_link', 'map_lat', 'map_lng', 'parts', 'schedule', 'story',
+        'gallery', 'hashtag', 'livestream_url', 'contact_name', 'contact_phone',
+        'aso_ebi_url', 'aso_ebi_note', 'hidden_sections',
+        'dress_code', 'colours', 'accent_color', 'rsvp_mode', 'invitation_id',
     ];
 
     protected $casts = [
         'event_date' => 'date',
         'is_active'  => 'boolean',
+        'schedule'   => 'array',
+        'colours'    => 'array',
+        'parts'      => 'array',
+        'gallery'    => 'array',
+        'hidden_sections' => 'array',
+        'map_lat'    => 'float',
+        'map_lng'    => 'float',
     ];
+
+    protected $appends = ['page_url'];
+
+    /** Words an event page can't be called, so /e/<slug> stays unambiguous. */
+    public const TYPES = ['wedding', 'birthday', 'naming', 'anniversary', 'graduation', 'housewarming', 'burial', 'other'];
+
+    /** Sections a host can switch off. */
+    public const SECTIONS = ['countdown', 'story', 'schedule', 'dress_code', 'gallery', 'gifts', 'wishes', 'rsvp', 'aso_ebi'];
+
+    public const GALLERY_MAX = 12;
+
+    public const RESERVED_SLUGS = ['new', 'edit', 'admin', 'api', 'preview', 'search', 'cherishly'];
 
     public function user() { return $this->belongsTo(User::class); }
 
     public function guests() { return $this->hasMany(EventGuest::class); }
+
+    /* What the event page brings together. */
+    public function invitation() { return $this->belongsTo(Invitation::class); }
+    public function registries() { return $this->hasMany(GiftRegistry::class); }
+    public function monetaryGifts() { return $this->hasMany(MonetaryGift::class); }
+    public function walls() { return $this->hasMany(MemoryWall::class); }
+
+    public function getPageUrlAttribute(): ?string
+    {
+        return $this->slug ? config('app.frontend_url') . '/e/' . $this->slug : null;
+    }
 
     public function getGuestsCountAttribute(): int { return $this->guests()->count(); }
 

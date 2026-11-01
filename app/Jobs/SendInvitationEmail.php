@@ -28,7 +28,7 @@ class SendInvitationEmail implements ShouldQueue
     public function handle(): void
     {
         $rsvpUrl = config('app.frontend_url') . '/rsvp/' . $this->invitation->share_token
-            . '?guest=' . $this->guest->id;
+            . '?guest=' . $this->guest->rsvp_token;
 
         Mail::send('emails.invitation', [
             'guest' => $this->guest,

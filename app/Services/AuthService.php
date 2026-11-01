@@ -131,7 +131,8 @@ class AuthService
         $user = User::where('email', $email)->first();
 
         if (!$user) {
-            return ['success' => false, 'message' => 'Invalid request.'];
+            // Same reply as a real account with no pending code.
+            return ['success' => false, 'message' => 'No OTP found. Please request a new one.'];
         }
 
         $result = $this->otpService->verify($user, $otp, 'password_reset');
@@ -181,7 +182,7 @@ class AuthService
 
         $this->otpService->resend($user, $type);
 
-        return ['success' => true, 'message' => 'OTP sent successfully.'];
+        return ['success' => true, 'message' => 'If this email exists, an OTP has been sent.'];
     }
 
     /* ── Format user for response ── */

@@ -65,7 +65,7 @@ class SecretSantaService
                 'santa_id' => $santa->id,
                 'name' => $participant['name'],
                 'email' => $participant['email'] ?? null,
-                'code' => strtoupper(substr(md5(uniqid()), 0, 6)),
+                'code' => self::newCode(),
             ]);
         }
 
@@ -88,7 +88,7 @@ class SecretSantaService
                 'santa_id' => $santa->id,
                 'name' => $row[0] ?? '',
                 'email' => $row[1] ?? null,
-                'code' => strtoupper(substr(md5(uniqid()), 0, 6)),
+                'code' => self::newCode(),
             ]);
         }
 
@@ -100,7 +100,30 @@ class SecretSantaService
 
     public function removeParticipant(SantaParticipant $participant): void
     {
+        $santa = $participant->santa;
+
         $participant->delete();
+
+        // Removing someone breaks the chain (their giver would have nobody),
+        // so the draw has to be run again, like when people are added.
+        if ($santa && $santa->is_matched) {
+            $santa->participants()->update(['assigned_to_id' => null]);
+            $santa->update(['is_matched' => false, 'matched_at' => null]);
+        }
+    }
+
+    /**
+     * Private reveal code: 8 characters from a set without look-alikes
+     * (no 0/O, 1/I/L), random rather than time-based so it can't be guessed.
+     */
+    public static function newCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        $code = '';
+        for ($i = 0; $i < 8; $i++) {
+            $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+        return $code;
     }
 
     /* ── Generate matches (Secret Santa algorithm) ── */

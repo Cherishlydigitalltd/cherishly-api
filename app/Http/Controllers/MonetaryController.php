@@ -7,6 +7,7 @@ use App\Http\Requests\Monetary\ContributeMonetaryRequest;
 use App\Http\Requests\Monetary\CreateMonetaryRequest;
 use App\Http\Requests\Monetary\UpdateMonetaryRequest;
 use App\Models\MonetaryGift;
+use App\Services\FeeService;
 use App\Services\MonetaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ use Illuminate\Http\Request;
 class MonetaryController extends Controller
 {
     public function __construct(
-        private MonetaryService $monetaryService
+        private MonetaryService $monetaryService,
+        private FeeService $feeService
     ) {
     }
 
@@ -95,6 +97,12 @@ class MonetaryController extends Controller
 
         if (!$gift) {
             return ApiResponse::notFound('Monetary gift not found or is no longer active.');
+        }
+
+        // Effective fee settings so the public page can show the gifter the fee before paying
+        if ($gift->user) {
+            $gift->setAttribute('fee_rate', $this->feeService->getRate($gift->user));
+            $gift->setAttribute('fee_bearer', $gift->user->fee_bearer ?? 'gifter');
         }
 
         return ApiResponse::success('Monetary gift retrieved.', $gift);

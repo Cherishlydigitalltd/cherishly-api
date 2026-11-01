@@ -22,6 +22,7 @@ class InvitationGuest extends Model
         'checked_in_at',
         'rsvp_responded_at',
         'qr_token',
+        'rsvp_token',
     ];
 
     protected $casts = [
@@ -40,6 +41,7 @@ class InvitationGuest extends Model
 
         static::creating(function ($guest) {
             $guest->qr_token = Str::random(32);
+            $guest->rsvp_token = Str::random(32);
         });
     }
 

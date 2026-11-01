@@ -11,6 +11,7 @@ use App\Http\Controllers\SecretSantaController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventPageController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
@@ -57,6 +58,8 @@ Route::prefix('auth')->group(function () {
 Route::get('payment/verify/{reference}', [PaymentController::class, 'verify']);
 Route::post('contact', [App\Http\Controllers\SupportController::class, 'contact'])->middleware('throttle:contact');
 Route::get('/public/stats', [PublicController::class, 'stats']);
+Route::get('/public/preview/{type}/{token}', [PublicController::class, 'preview'])
+    ->middleware('throttle:120,1');
 
 Route::prefix('public')->group(function () {
     // Gift Registries
@@ -70,23 +73,29 @@ Route::prefix('public')->group(function () {
 
     // Secret Santa
     Route::get('santa/{token}', [SecretSantaController::class, 'publicShow']);
-    Route::post('santa/{token}/reveal', [SecretSantaController::class, 'revealMatch']);
+    Route::post('santa/{token}/reveal', [SecretSantaController::class, 'revealMatch'])
+        ->middleware('throttle:10,1');
+
+    // Event pages (cherishlyng.com/e/<slug>)
+    Route::get('e/{slug}', [EventPageController::class, 'show']);
+    Route::post('e/{slug}/rsvp', [EventPageController::class, 'rsvp'])->middleware('throttle:10,1');
 
     // Events
     Route::get('events/{token}', [EventController::class, 'publicShow']);
-    Route::get('events/{token}/guest/{guestId}', [EventController::class, 'publicGuest']);
+    Route::get('events/{token}/guest/{code}', [EventController::class, 'publicGuest']);
     Route::post('events/{token}/rsvp', [EventController::class, 'publicRsvp']);
-    Route::get('events/checkin/{qrToken}', [EventController::class, 'checkInByQr']);
 
     // Invitations
     Route::get('invitations/{token}', [InvitationController::class, 'publicShow']);
     Route::get('invitations/guest/{qrToken}', [InvitationController::class, 'guestByQr']);
-    Route::post('invitations/{token}/rsvp/{guest}', [InvitationController::class, 'rsvp']);
+    Route::post('invitations/{token}/rsvp/{guestCode}', [InvitationController::class, 'rsvp'])
+        ->middleware('throttle:30,1');
 
     // Memory Walls
     Route::get('walls/{token}', [MemoryWallController::class, 'publicShow']);
     Route::get('walls/{token}/wishes', [MemoryWallController::class, 'publicWishes']);
-    Route::post('walls/{token}/wishes', [MemoryWallController::class, 'addWish']);
+    Route::post('walls/{token}/wishes', [MemoryWallController::class, 'addWish'])
+        ->middleware('throttle:10,1');
 });
 
 /*
@@ -103,7 +112,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // Profile
     Route::get('profile', [ProfileController::class, 'show']);
     Route::put('profile', [ProfileController::class, 'update']);
-    Route::post('profile/avatar', [ProfileController::class, 'uploadAvatar']);
+    Route::post('profile/avatar', [ProfileController::class, 'updateAvatar']);
     Route::delete('profile/avatar', [ProfileController::class, 'deleteAvatar']);
     Route::post('profile/change-password', [ProfileController::class, 'changePassword']);
 
@@ -154,6 +163,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/{invitation}/guests/import', [InvitationController::class, 'importGuests']);
         Route::delete('/{invitation}/guests/{guest}', [InvitationController::class, 'removeGuest']);
         Route::post('/{invitation}/guests/{guest}/checkin', [InvitationController::class, 'checkIn']);
+        Route::post('/{invitation}/checkin-qr', [InvitationController::class, 'checkInByQr']);
         Route::post('/{invitation}/send', [InvitationController::class, 'send']);
         Route::get('/{invitation}/attendance', [InvitationController::class, 'attendance']);
     });
@@ -175,6 +185,12 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // Events
     Route::prefix('events')->group(function () {
         Route::get('/', [EventController::class, 'index']);
+        Route::get('/slug-check', [EventPageController::class, 'slugCheck']);
+        Route::get('/{event}/page', [EventPageController::class, 'edit']);
+        Route::put('/{event}/page', [EventPageController::class, 'update']);
+        Route::put('/{event}/page/links', [EventPageController::class, 'links']);
+        Route::post('/{event}/page/cover', [EventPageController::class, 'cover']);
+        Route::post('/{event}/page/gallery', [EventPageController::class, 'addPhoto']);
         Route::post('/', [EventController::class, 'store']);
         Route::get('/{event}', [EventController::class, 'show']);
         Route::put('/{event}', [EventController::class, 'update']);
@@ -184,6 +200,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/{event}/guests/import', [EventController::class, 'importGuests']);
         Route::delete('/{event}/guests/{guest}', [EventController::class, 'removeGuest']);
         Route::post('/{event}/guests/{guest}/checkin', [EventController::class, 'checkIn']);
+        Route::post('/{event}/checkin-qr', [EventController::class, 'checkInByQr']);
         Route::get('/{event}/attendance', [EventController::class, 'attendance']);
         Route::post('/{event}/send-invitations', [EventController::class, 'sendInvitations']);
     });
@@ -208,7 +225,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::put('/read-all', [NotificationController::class, 'markAllRead']);
     });
 
-    Route::post('support', [App\Http\Controllers\SupportController::class, 'submit']);
+    Route::post('support', [App\Http\Controllers\SupportController::class, 'submit'])
+        ->middleware('throttle:5,1');
 
     Route::get('settings/fees', [SettingsController::class, 'show']);
     Route::put('settings/fees', [SettingsController::class, 'updateFeeBearer']);

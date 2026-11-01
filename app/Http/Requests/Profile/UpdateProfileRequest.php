@@ -11,9 +11,10 @@ class UpdateProfileRequest extends FormRequest
 
     public function rules(): array
     {
+        // Name and email are fixed once the account is created; only the
+        // phone number can be changed. Anything else sent is ignored, since
+        // the service only saves validated fields.
         return [
-            'first_name' => ['sometimes', 'string', 'max:100'],
-            'last_name'  => ['sometimes', 'string', 'max:100'],
             'phone'      => [
                 'sometimes',
                 'string',

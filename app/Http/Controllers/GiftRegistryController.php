@@ -9,6 +9,7 @@ use App\Http\Requests\Registry\CreateRegistryRequest;
 use App\Http\Requests\Registry\UpdateRegistryRequest;
 use App\Models\Gift;
 use App\Models\GiftRegistry;
+use App\Services\FeeService;
 use App\Services\GiftRegistryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,8 @@ use App\Models\CatalogGift;
 class GiftRegistryController extends Controller
 {
     public function __construct(
-        private GiftRegistryService $registryService
+        private GiftRegistryService $registryService,
+        private FeeService $feeService
     ) {
     }
 
@@ -176,6 +178,14 @@ class GiftRegistryController extends Controller
 
         if (!$registry) {
             return ApiResponse::notFound('Registry not found or is not public.');
+        }
+
+        // Effective fee settings so the public page can show the gifter the fee before paying.
+        // Query the owner without caching the relation so user fields aren't serialized.
+        $owner = $registry->user()->first();
+        if ($owner) {
+            $registry->setAttribute('fee_rate', $this->feeService->getRate($owner));
+            $registry->setAttribute('fee_bearer', $owner->fee_bearer ?? 'gifter');
         }
 
         return ApiResponse::success('Registry retrieved.', $registry);

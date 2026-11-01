@@ -167,15 +167,17 @@ class EventController extends Controller
     }
 
     /**
-     * GET /api/public/events/{token}/guest/{guestId}
+     * GET /api/public/events/{token}/guest/{code}
+     * {code} is the guest's private RSVP code from their email, not their
+     * id, so one link can't be used to look up everyone else's details.
      */
-    public function publicGuest(string $token, int $guestId): JsonResponse
+    public function publicGuest(string $token, string $code): JsonResponse
     {
         $event = $this->eventService->findByToken($token);
         if (!$event)
             return ApiResponse::notFound('Event not found.');
 
-        $guest = $event->guests()->find($guestId);
+        $guest = $this->eventService->findGuestByCode($event, $code);
         if (!$guest)
             return ApiResponse::notFound('Guest not found.');
 
@@ -195,7 +197,7 @@ class EventController extends Controller
     public function publicRsvp(Request $request, string $token): JsonResponse
     {
         $request->validate([
-            'guest_id' => ['nullable', 'integer'],
+            'guest' => ['required', 'string', 'max:64'],
             'status' => ['required', 'in:attending,declined'],
         ]);
 
@@ -203,7 +205,7 @@ class EventController extends Controller
         if (!$event)
             return ApiResponse::notFound('Event not found.');
 
-        $guest = $event->guests()->find($request->guest_id);
+        $guest = $this->eventService->findGuestByCode($event, $request->guest);
         if (!$guest)
             return ApiResponse::notFound('Guest not found.');
 
@@ -222,13 +224,19 @@ class EventController extends Controller
     }
 
     /**
-     * GET /api/public/events/checkin/{qrToken}
+     * POST /api/events/{event}/checkin-qr
+     * Used to be a public GET, so anyone holding a pass could check a guest
+     * in from anywhere; now only the event's host can, and only for that event.
      */
-    public function checkInByQr(string $qrToken): JsonResponse
+    public function checkInByQr(Request $request, Event $event): JsonResponse
     {
-        $guest = EventGuest::where('qr_token', $qrToken)->with('event')->first();
+        $this->authorize('update', $event);
+        $request->validate(['qr_token' => ['required', 'string', 'max:500']]);
+
+        $token = basename(parse_url(trim($request->qr_token), PHP_URL_PATH) ?: trim($request->qr_token));
+        $guest = $event->guests()->where('qr_token', $token)->with('event')->first();
         if (!$guest)
-            return ApiResponse::notFound('Guest not found.');
+            return ApiResponse::notFound('This pass isn’t on this guest list.');
 
         $guest = $this->eventService->checkIn($guest);
 

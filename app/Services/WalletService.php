@@ -328,10 +328,22 @@ class WalletService
         return DB::transaction(function () use ($reference, $status) {
             $transaction = \App\Models\Transaction::where('reference', $reference)
                 ->where('type', 'debit')
+                ->lockForUpdate()
                 ->first();
 
             if (!$transaction)
                 return false;
+
+            // Gateways resend webhooks. Only a pending withdrawal can change;
+            // otherwise a repeated "failed" would refund the money twice.
+            if ($transaction->status !== 'pending') {
+                Log::info('Withdrawal webhook ignored: already settled', [
+                    'reference' => $reference,
+                    'status' => $transaction->status,
+                    'incoming' => $status,
+                ]);
+                return true;
+            }
 
             if ($status === 'failed') {
                 // Reverse both balance and available_balance
@@ -346,6 +358,8 @@ class WalletService
 
             $transaction->update(['status' => $status]);
 
+            $this->notifyWithdrawal($transaction, $status);
+
             Log::info('Withdrawal confirmed', [
                 'reference' => $reference,
                 'status' => $status,
@@ -353,6 +367,29 @@ class WalletService
 
             return true;
         });
+    }
+
+    private function notifyWithdrawal(\App\Models\Transaction $transaction, string $status): void
+    {
+        $user = $transaction->wallet->user ?? null;
+        if (!$user || !in_array($status, ['successful', 'failed'], true)) {
+            return;
+        }
+
+        $wallet = $transaction->wallet;
+        $net = $transaction->net_amount ?? $transaction->amount;
+        $bank = trim(($wallet->bank_name ?? 'your bank') . ($wallet->account_number ? ' (' . substr($wallet->account_number, -4) . ')' : ''));
+
+        app(NotificationService::class)->create(
+            $user,
+            'withdrawal',
+            $status === 'successful' ? 'Withdrawal successful' : 'Withdrawal failed',
+            $status === 'successful'
+                ? '₦' . number_format($net, 2) . " has been sent to {$bank}."
+                : '₦' . number_format($transaction->amount, 2) . " couldn't be sent to {$bank}. It's back in your wallet.",
+            '/dashboard/wallet',
+            $status === 'successful' ? '💸' : '⚠️'
+        );
     }
 
     /* ── Get banks list ── */

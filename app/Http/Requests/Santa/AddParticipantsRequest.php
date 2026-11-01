@@ -11,7 +11,7 @@ class AddParticipantsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'participants'           => ['required', 'array', 'min:2'],
+            'participants'           => ['required', 'array', 'min:1'],
             'participants.*.name'    => ['required', 'string', 'max:200'],
             'participants.*.email'   => ['nullable', 'email'],
         ];
@@ -20,7 +20,7 @@ class AddParticipantsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'participants.min'            => 'At least 2 participants are required.',
+            'participants.min'            => 'Add at least one participant.',
             'participants.*.name.required' => 'Participant name is required.',
         ];
     }

@@ -19,6 +19,7 @@ class MemoryWall extends Model
         'share_token',
         'is_active',
         'wall_type',
+        'event_id',
     ];
 
     protected $casts = [

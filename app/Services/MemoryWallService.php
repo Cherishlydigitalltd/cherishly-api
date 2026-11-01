@@ -116,8 +116,18 @@ class MemoryWallService
 
     public function getPublicWishes(MemoryWall $wall): LengthAwarePaginator
     {
+        // Public visitors only get the display name — sending the raw `name`
+        // too would reveal who wrote an "Anonymous" wish.
         return $wall->wishes()
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->through(fn (Wish $wish) => [
+                'id'           => $wish->id,
+                'display_name' => $wish->display_name,
+                'name'         => $wish->display_name,
+                'message'      => $wish->message,
+                'is_anonymous' => $wish->is_anonymous,
+                'created_at'   => $wish->created_at,
+            ]);
     }
 }

@@ -20,6 +20,7 @@ class MonetaryGift extends Model
         'cover_photo',
         'share_token',
         'is_active',
+        'event_id',
     ];
 
     protected $casts = [

@@ -11,7 +11,7 @@ class EventGuest extends Model
 
     protected $fillable = [
         'event_id', 'full_name', 'email', 'phone',
-        'allow_plus_one', 'rsvp_status', 'qr_token', 'checked_in_at',
+        'allow_plus_one', 'rsvp_status', 'qr_token', 'rsvp_token', 'checked_in_at',
     ];
 
     protected $casts = [
@@ -20,6 +20,14 @@ class EventGuest extends Model
     ];
 
     public function event() { return $this->belongsTo(Event::class); }
+
+    protected static function booted(): void
+    {
+        // Private code for the guest's RSVP link (never their numeric id).
+        static::creating(function (EventGuest $guest) {
+            $guest->rsvp_token ??= \Illuminate\Support\Str::random(32);
+        });
+    }
 
     public function getQrUrlAttribute(): string
     {

@@ -75,11 +75,22 @@ class WebhookController extends Controller
         $type = $payload['type'];
         $meta = $payload['meta'] ?? [];
 
-        $status = match ($status) {
+        $status = match (strtolower((string) $status)) {
             'success', 'successful', 'completed' => 'successful',
-            'failed', 'failure', 'declined' => 'failed',
-            default => 'failed',
+            'failed', 'failure', 'declined', 'reversed' => 'failed',
+            // In-between states ("pending", "processing", …) used to count as
+            // failed, which refunded withdrawals the bank was still paying out.
+            default => null,
         };
+
+        if ($status === null) {
+            Log::info('Webhook: non-final status ignored', [
+                'reference' => $reference,
+                'status' => $payload['status'],
+                'type' => $type,
+            ]);
+            return ApiResponse::success('Webhook acknowledged.');
+        }
 
         $handled = match ($type) {
             'gift_contribution' => $this->handleGiftContribution($reference, $status, $meta),

@@ -21,7 +21,7 @@ class InvitationMail extends Mailable
         public Invitation $invitation
     ) {
         $this->rsvpUrl = config('app.frontend_url') . '/rsvp/' . $invitation->share_token
-            . '?guest=' . $guest->id;
+            . '?guest=' . $guest->rsvp_token;
     }
 
     public function envelope(): Envelope

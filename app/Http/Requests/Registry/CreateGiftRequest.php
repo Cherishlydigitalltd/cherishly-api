@@ -20,6 +20,8 @@ class CreateGiftRequest extends FormRequest
             'image'                   => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'type'                    => ['nullable', 'in:physical,monetary'],
             'allow_cash_contribution' => ['nullable', 'boolean'],
+            // Picked from the catalog: the server copies that gift's image.
+            'catalog_gift_id'         => ['nullable', 'integer', 'exists:catalog_gifts,id'],
         ];
     }
 }
