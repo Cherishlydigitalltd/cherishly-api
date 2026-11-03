@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'user' => \App\Http\Middleware\EnsureUser::class,
+            'vendor' => \App\Http\Middleware\EnsureVendor::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -41,6 +43,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (ModelNotFoundException $e, Request $request) {
             if ($request->is('api/*')) {
                 return ApiResponse::notFound('Resource not found.');
+            }
+        });
+
+        // abort(403/404/422) and failed policy checks keep their status code
+        // instead of falling through to a 500 below.
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return ApiResponse::error($e->getMessage() ?: 'You don’t have permission to do that.', statusCode: 403);
+            }
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, Request $request) {
+            if ($request->is('api/*')) {
+                $status = $e->getStatusCode();
+                $message = $e->getMessage() ?: match ($status) {
+                    403 => 'You don’t have permission to do that.',
+                    404 => 'Resource not found.',
+                    429 => 'Too many requests. Please slow down.',
+                    default => 'Something went wrong. Please try again later.',
+                };
+                return ApiResponse::error($message, statusCode: $status);
             }
         });
 

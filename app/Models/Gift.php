@@ -21,6 +21,9 @@ class Gift extends Model
         'type',
         'allow_cash_contribution',
         'amount_contributed',
+        'vendor_product_id',
+        'vendor_id',
+        'fulfilment',
     ];
 
     protected $casts = [
@@ -30,7 +33,7 @@ class Gift extends Model
         'allow_cash_contribution'=> 'boolean',
     ];
 
-    protected $appends = ['funded_percentage', 'is_fully_funded'];
+    protected $appends = ['funded_percentage', 'is_fully_funded', 'is_vendor_item', 'amount_remaining'];
 
     /* ── Accessors ── */
 
@@ -45,11 +48,37 @@ class Gift extends Model
         return $this->amount_contributed >= $this->price;
     }
 
+    public function getIsVendorItemAttribute(): bool
+    {
+        return $this->vendor_product_id !== null || $this->vendor_id !== null;
+    }
+
+    public function getAmountRemainingAttribute(): float
+    {
+        return max(0, round((float) $this->price - (float) $this->amount_contributed, 2));
+    }
+
+    /** Guests can still pay toward it: not fully paid, not ordered, not cashed out. */
+    public function isCollecting(): bool
+    {
+        return $this->fulfilment === null && !$this->is_fully_funded;
+    }
+
     /* ── Relationships ── */
 
     public function registry()
     {
         return $this->belongsTo(GiftRegistry::class, 'registry_id');
+    }
+
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class);
+    }
+
+    public function vendorOrder()
+    {
+        return $this->hasOne(VendorOrder::class)->latestOfMany();
     }
 
     public function contributions()

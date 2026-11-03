@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Contribution;
-use App\Models\CatalogGift;
+use App\Models\VendorProduct;
 use App\Models\Gift;
 use App\Models\GiftRegistry;
 use App\Models\User;
@@ -86,7 +86,7 @@ class GiftRegistryService
             // Remove ->where('is_public', true)
             ->with([
                 'gifts' => function ($q) {
-                    $q->withCount('successfulContributions');
+                    $q->withCount('successfulContributions')->with('vendor:id,business_name,logo');
                 }
             ])
             ->first();
@@ -99,18 +99,23 @@ class GiftRegistryService
     {
         return $registry->gifts()
             ->withCount('successfulContributions')
+            ->with(['vendor:id,business_name,logo', 'vendorOrder' => fn ($q) => $q->select('vendor_orders.id', 'vendor_orders.gift_id', 'vendor_orders.status', 'vendor_orders.reference')])
             ->latest()
             ->get();
     }
 
     public function addGift(GiftRegistry $registry, array $data): Gift
     {
+        // The catalog is vendor items now; older apps still send catalog_gift_id.
+        $productId = $data['vendor_product_id'] ?? $data['catalog_gift_id'] ?? null;
+        if ($productId) {
+            return $this->addVendorGift($registry, (int) $productId);
+        }
+
         $imageUrl = null;
 
         if (!empty($data['image']) && $data['image'] instanceof UploadedFile) {
             $imageUrl = $this->assetService->upload($data['image'], 'gifts');
-        } elseif (!empty($data['catalog_gift_id'])) {
-            $imageUrl = CatalogGift::find($data['catalog_gift_id'])?->image;
         }
 
         return Gift::create([
@@ -126,8 +131,36 @@ class GiftRegistryService
         ]);
     }
 
+    /** A vendor's item, copied as it is now: the vendor's price, not the client's. */
+    private function addVendorGift(GiftRegistry $registry, int $productId): Gift
+    {
+        $product = VendorProduct::with('vendor')->find($productId);
+        if (!$product || !$product->isListed()) {
+            throw new \RuntimeException('This item is no longer available.');
+        }
+
+        return Gift::create([
+            'registry_id' => $registry->id,
+            'name' => $product->name,
+            'description' => $product->description,
+            'price' => $product->price,
+            'quantity' => 1,
+            'category' => $product->category,
+            'image' => $product->image,
+            'type' => 'physical',
+            'allow_cash_contribution' => true,
+            'vendor_product_id' => $product->id,
+            'vendor_id' => $product->vendor_id,
+        ]);
+    }
+
     public function updateGift(Gift $gift, array $data): Gift
     {
+        // A vendor item's name, price and photo are the vendor's.
+        if ($gift->is_vendor_item) {
+            $data = array_intersect_key($data, array_flip(['description']));
+        }
+
         if (!empty($data['image']) && $data['image'] instanceof UploadedFile) {
             $data['image'] = $this->assetService->replace($gift->image, $data['image'], 'gifts');
         } else {
@@ -140,6 +173,15 @@ class GiftRegistryService
 
     public function deleteGift(Gift $gift): void
     {
+        if ($gift->is_vendor_item) {
+            if ($gift->fulfilment === 'order' || ($gift->fulfilment === null && (float) $gift->amount_contributed > 0)) {
+                throw new \RuntimeException('Guests have paid toward this gift. Take the money as cash first, then you can remove it.');
+            }
+            // The photo belongs to the vendor's listing; leave it.
+            $gift->delete();
+            return;
+        }
+
         if ($gift->image) {
             $this->assetService->delete($gift->image);
         }
@@ -158,12 +200,28 @@ class GiftRegistryService
                 throw new \RuntimeException('This gift has already been fully funded.');
             }
 
+            // ₦100 minimum, except paying off the last few naira of a vendor item.
+            $isTheRest = $gift->is_vendor_item && abs((float) $data['amount'] - $gift->amount_remaining) < 0.01;
+            if ((float) $data['amount'] < 100 && !$isTheRest) {
+                throw new \RuntimeException('Minimum contribution amount is ₦100.');
+            }
+
+            if ($gift->is_vendor_item) {
+                if (!$gift->isCollecting()) {
+                    throw new \RuntimeException('This gift is no longer taking contributions.');
+                }
+                if ((float) $data['amount'] > $gift->amount_remaining) {
+                    throw new \RuntimeException('Only ₦' . number_format($gift->amount_remaining, 2) . ' is left to pay for this gift.');
+                }
+            }
+
             $reference = 'CHR_GIFT_' . $gift->id . '_' . uniqid();
 
             // ── Calculate fee ──
             $feeService = app(\App\Services\FeeService::class);
             $owner = $gift->registry->user;
-            $fee = $feeService->calculate((float) $data['amount'], $owner);
+            // Vendor items must collect their full price, so the guest pays the fee.
+            $fee = $feeService->calculate((float) $data['amount'], $owner, $gift->is_vendor_item ? 'gifter' : null);
 
             $contribution = Contribution::create([
                 'gift_id' => $gift->id,
@@ -370,6 +428,12 @@ class GiftRegistryService
                 'payment_status' => $status,
                 'payment_meta' => $meta,
             ]);
+
+            if ($status === 'successful' && $contribution->gift->is_vendor_item) {
+                // Held for the vendor until delivery, not paid into the wallet.
+                app(MarketplaceService::class)->recordPayment($contribution->gift, $contribution);
+                return true;
+            }
 
             if ($status === 'successful') {
                 $gift = $contribution->gift;

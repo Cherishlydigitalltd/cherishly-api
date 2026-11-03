@@ -13,7 +13,7 @@ use App\Services\FeeService;
 use App\Services\GiftRegistryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Models\CatalogGift;
+use App\Models\VendorProduct;
 
 class GiftRegistryController extends Controller
 {
@@ -59,7 +59,8 @@ class GiftRegistryController extends Controller
 
         $registry->load([
             'gifts' => function ($q) {
-                $q->withCount('successfulContributions');
+                $q->withCount('successfulContributions')
+                    ->with(['vendor:id,business_name,logo', 'vendorOrder' => fn ($q) => $q->select('vendor_orders.id', 'vendor_orders.gift_id', 'vendor_orders.status', 'vendor_orders.reference')]);
             }
         ]);
 
@@ -117,7 +118,11 @@ class GiftRegistryController extends Controller
     {
         $this->authorizeOwner($request, $registry);
 
-        $gift = $this->registryService->addGift($registry, $request->validated());
+        try {
+            $gift = $this->registryService->addGift($registry, $request->validated());
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), statusCode: 422);
+        }
 
         return ApiResponse::success('Gift added successfully.', $gift, 201);
     }
@@ -145,7 +150,11 @@ class GiftRegistryController extends Controller
         $this->authorizeOwner($request, $registry);
         $this->authorizeGift($gift, $registry);
 
-        $this->registryService->deleteGift($gift);
+        try {
+            $this->registryService->deleteGift($gift);
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), statusCode: 422);
+        }
 
         return ApiResponse::success('Gift deleted successfully.');
     }
@@ -248,18 +257,25 @@ class GiftRegistryController extends Controller
      */
     public function catalog(Request $request): JsonResponse
     {
-        $query = CatalogGift::query();
+        // Approved vendor items only. The admin's old catalog is retired.
+        $query = VendorProduct::listed()->with('vendor:id,business_name,logo,state,delivery_states');
 
         if ($search = $request->query('search')) {
-            $query->where('name', 'ilike', "%{$search}%")
-                ->orWhere('category', 'ilike', "%{$search}%");
+            $query->where(fn ($q) => $q->where('name', 'ilike', "%{$search}%")
+                ->orWhere('category', 'ilike', "%{$search}%"));
         }
 
         if ($category = $request->query('category')) {
             $query->where('category', $category);
         }
 
+        // Only vendors who deliver to the celebrant's state.
+        if ($state = $request->query('state')) {
+            $query->whereHas('vendor', fn ($q) => $q->whereJsonContains('delivery_states', $state));
+        }
+
         $gifts = $query->latest()->paginate(12);
+        $gifts->getCollection()->each->makeHidden(['pending_changes', 'status_reason', 'stock', 'status', 'is_active']);
 
         return ApiResponse::success('Catalog gifts retrieved.', $gifts);
     }

@@ -15,7 +15,7 @@ class ContributeRequest extends FormRequest
             'donor_name'      => ['required', 'string', 'max:200'],
             'donor_email'     => ['required', 'email'],
             'donor_phone'     => ['nullable', 'string', 'max:20'],
-            'amount'          => ['required', 'numeric', 'min:100'],
+            'amount'          => ['required', 'numeric', 'min:1'], // ₦100 minimum is checked in GiftRegistryService::contribute
             'bvn'             => ['nullable', 'string', 'size:11'],
             'payment_method'  => ['required', 'in:paystack,bank_transfer'],
             'is_anonymous'    => ['nullable', 'boolean'],

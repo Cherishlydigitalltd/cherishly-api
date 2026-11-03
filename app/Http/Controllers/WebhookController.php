@@ -154,6 +154,10 @@ class WebhookController extends Controller
     private function handleWithdrawal(string $reference, string $status): bool
     {
         try {
+            // Vendor payouts go through the same payout service.
+            if (str_starts_with($reference, 'VPO-')) {
+                return app(\App\Services\MarketplaceService::class)->confirmPayout($reference, $status);
+            }
             return $this->walletService->confirmWithdrawal($reference, $status);
         } catch (\Exception $e) {
             Log::error('Webhook: withdrawal failed', ['reference' => $reference, 'error' => $e->getMessage()]);

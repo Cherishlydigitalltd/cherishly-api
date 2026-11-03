@@ -59,6 +59,11 @@ class User extends Authenticatable
         return $this->hasMany(UserOtp::class);
     }
 
+    public function vendor()
+    {
+        return $this->hasOne(Vendor::class);
+    }
+
     public function wallet()
     {
         return $this->hasOne(Wallet::class);

@@ -19,3 +19,9 @@ Schedule::call(fn () => app(\App\Services\InvitationService::class)->sendDueSche
     ->everyMinute()
     ->name('send-scheduled-invitations')
     ->withoutOverlapping();
+
+// Vendor orders marked delivered that the celebrant didn't confirm or dispute.
+Schedule::call(fn () => app(\App\Services\MarketplaceService::class)->autoComplete())
+    ->hourly()
+    ->name('complete-delivered-vendor-orders')
+    ->withoutOverlapping();

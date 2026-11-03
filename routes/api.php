@@ -23,6 +23,11 @@ use App\Http\Controllers\Admin\AdminCatalogController;
 use App\Http\Controllers\Admin\AdminMonetaryController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\PublicController;
+use App\Http\Controllers\GiftOrderController;
+use App\Http\Controllers\Admin\AdminVendorController;
+use App\Http\Controllers\Vendor\VendorController;
+use App\Http\Controllers\Vendor\VendorOrderController;
+use App\Http\Controllers\Vendor\VendorProductController;
 
 
 /*
@@ -103,7 +108,7 @@ Route::prefix('public')->group(function () {
 | Protected Routes
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->group(function () {
 
     // Auth
     Route::get('auth/me', [AuthController::class, 'me']);
@@ -139,6 +144,41 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::put('/{registry}/gifts/{gift}', [GiftRegistryController::class, 'updateGift']);
         Route::delete('/{registry}/gifts/{gift}', [GiftRegistryController::class, 'deleteGift']);
         Route::get('/{registry}/gifts/{gift}/contributors', [GiftRegistryController::class, 'contributors']);
+
+        // Vendor items: the order, delivery address, cash instead, delivery
+        Route::get('/{registry}/gifts/{gift}/order', [GiftOrderController::class, 'show']);
+        Route::put('/{registry}/gifts/{gift}/order/address', [GiftOrderController::class, 'address']);
+        Route::post('/{registry}/gifts/{gift}/order/received', [GiftOrderController::class, 'received']);
+        Route::post('/{registry}/gifts/{gift}/order/problem', [GiftOrderController::class, 'problem']);
+        Route::post('/{registry}/gifts/{gift}/take-cash', [GiftOrderController::class, 'takeCash']);
+    });
+
+    // Vendor portal
+    Route::prefix('vendor')->group(function () {
+        Route::get('options', [VendorController::class, 'options']);
+        Route::get('me', [VendorController::class, 'me']);
+        Route::post('apply', [VendorController::class, 'apply'])->middleware('throttle:10,1');
+
+        Route::middleware('vendor')->group(function () {
+            Route::post('profile', [VendorController::class, 'update']);
+            Route::put('bank', [VendorController::class, 'bank'])->middleware('throttle:10,1');
+
+            Route::get('products', [VendorProductController::class, 'index']);
+            Route::post('products', [VendorProductController::class, 'store']);
+            Route::get('products/{product}', [VendorProductController::class, 'show']);
+            Route::post('products/{product}', [VendorProductController::class, 'update']);
+            Route::put('products/{product}/active', [VendorProductController::class, 'toggle']);
+            Route::delete('products/{product}', [VendorProductController::class, 'destroy']);
+
+            Route::get('orders', [VendorOrderController::class, 'index']);
+            Route::get('orders/{order}', [VendorOrderController::class, 'show']);
+            Route::middleware('vendor:approved')->group(function () {
+                Route::post('orders/{order}/accept', [VendorOrderController::class, 'accept']);
+                Route::post('orders/{order}/decline', [VendorOrderController::class, 'decline']);
+                Route::post('orders/{order}/dispatch', [VendorOrderController::class, 'dispatch']);
+                Route::post('orders/{order}/delivered', [VendorOrderController::class, 'delivered']);
+            });
+        });
     });
 
     // Monetary Gifts
@@ -268,6 +308,20 @@ Route::prefix('admin')->group(function () {
         Route::post('catalog', [AdminCatalogController::class, 'store']);
         Route::put('catalog/{catalogGift}', [AdminCatalogController::class, 'update']);
         Route::delete('catalog/{catalogGift}', [AdminCatalogController::class, 'destroy']);
+
+        // Vendor marketplace
+        Route::get('marketplace/summary', [AdminVendorController::class, 'summary']);
+        Route::get('vendors', [AdminVendorController::class, 'vendors']);
+        Route::get('vendors/{vendor}', [AdminVendorController::class, 'vendor']);
+        Route::put('vendors/{vendor}/status', [AdminVendorController::class, 'setVendorStatus']);
+        Route::get('vendor-products', [AdminVendorController::class, 'products']);
+        Route::put('vendor-products/{product}/review', [AdminVendorController::class, 'review']);
+        Route::get('vendor-orders', [AdminVendorController::class, 'orders']);
+        Route::get('vendor-orders/{order}', [AdminVendorController::class, 'order']);
+        Route::put('vendor-orders/{order}/resolve', [AdminVendorController::class, 'resolve']);
+        Route::post('vendor-orders/{order}/retry-payout', [AdminVendorController::class, 'retryPayout']);
+        Route::get('settings/vendor-commission', [AdminVendorController::class, 'commission']);
+        Route::put('settings/vendor-commission', [AdminVendorController::class, 'updateCommission']);
 
 
 

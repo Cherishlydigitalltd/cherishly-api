@@ -19,6 +19,10 @@ class GiftRegistry extends Model
         'is_public',
         'share_token',
         'event_id',
+        'delivery_name',
+        'delivery_phone',
+        'delivery_address',
+        'delivery_state',
     ];
 
     protected $casts = [

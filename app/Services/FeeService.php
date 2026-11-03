@@ -18,10 +18,10 @@ class FeeService
         return (float) ($global ?? 2.5);
     }
 
-    public function calculate(float $contributionAmount, User $owner): array
+    public function calculate(float $contributionAmount, User $owner, ?string $bearer = null): array
     {
         $rate = $this->getRate($owner);
-        $bearer = $owner->fee_bearer ?? 'gifter';
+        $bearer = $bearer ?? $owner->fee_bearer ?? 'gifter';
         $feeAmount = round($contributionAmount * ($rate / 100), 2);
 
         if ($bearer === 'gifter') {
