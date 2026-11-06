@@ -15,6 +15,7 @@ use App\Http\Controllers\EventPageController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\Admin\AdminAccountController;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminUserController;
@@ -286,6 +287,15 @@ Route::prefix('admin')->group(function () {
     Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::post('logout', [AdminAuthController::class, 'logout']);
         Route::get('me', [AdminAuthController::class, 'me']);
+        Route::put('password', [AdminAuthController::class, 'changePassword'])->middleware('throttle:10,1');
+
+        // Admin accounts (super admins only)
+        Route::middleware('admin:super_admin')->group(function () {
+            Route::get('admins', [AdminAccountController::class, 'index']);
+            Route::post('admins', [AdminAccountController::class, 'store']);
+            Route::put('admins/{account}/status', [AdminAccountController::class, 'setStatus']);
+            Route::put('admins/{account}/password', [AdminAccountController::class, 'resetPassword']);
+        });
 
         // Dashboard
         Route::get('dashboard/stats', [AdminDashboardController::class, 'stats']);

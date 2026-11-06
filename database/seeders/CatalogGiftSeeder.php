@@ -85,7 +85,7 @@ class CatalogGiftSeeder extends Seeder
         ];
 
         foreach ($gifts as $gift) {
-            CatalogGift::updateOrCreate(
+            CatalogGift::firstOrCreate(
                 ['name' => $gift['name']],
                 array_merge($gift, [
                     'description' => "A quality {$gift['name']} — perfect gift for any occasion.",

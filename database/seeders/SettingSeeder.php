@@ -43,10 +43,8 @@ class SettingSeeder extends Seeder
         ];
 
         foreach ($settings as $setting) {
-            DB::table('settings')->updateOrInsert(
-                ['key' => $setting['key']],
-                $setting
-            );
+            // Only adds missing settings; values set in the admin panel stay.
+            DB::table('settings')->insertOrIgnore($setting);
         }
     }
 }
