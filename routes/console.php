@@ -12,7 +12,11 @@ Artisan::command('inspire', function () {
 
 
 
-Schedule::job(new SettlePendingFunds)->dailyAt('08:00');
+// Hourly rather than once a day: it only settles funds whose available_at
+// has passed, so extra runs are harmless, and a missed ping (the scheduler
+// is driven by an outside service hitting /api/cron/run) no longer delays
+// settlement by a whole day.
+Schedule::job(new SettlePendingFunds)->hourly()->name('settle-pending-funds')->withoutOverlapping();
 
 // Invitations the host scheduled for later.
 Schedule::call(fn () => app(\App\Services\InvitationService::class)->sendDueScheduled())

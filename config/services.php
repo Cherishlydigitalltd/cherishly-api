@@ -34,6 +34,11 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    // Secret for /api/cron/run (see CronController). Empty = endpoint off.
+    'cron' => [
+        'secret' => env('CRON_SECRET'),
+    ],
+
     'assets' => [
         'url' => env('ASSET_URL', 'https://assets.cherishlyng.com'),
         'key' => env('ASSET_API_KEY'),

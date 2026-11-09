@@ -41,6 +41,10 @@ Route::prefix('webhooks')->group(function () {
     Route::post('payment/test', [WebhookController::class, 'test']);
 });
 
+// Called every minute by an outside cron service (the host has no cron).
+Route::get('cron/run', [\App\Http\Controllers\CronController::class, 'run'])
+    ->middleware('throttle:10,1');
+
 /*
 |--------------------------------------------------------------------------
 | Public Auth Routes
