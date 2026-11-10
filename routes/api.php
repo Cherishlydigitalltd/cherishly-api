@@ -339,6 +339,13 @@ Route::prefix('admin')->group(function () {
 
 
 
+        // Customer money (read only)
+        Route::get('finance/summary', [\App\Http\Controllers\Admin\AdminFinanceController::class, 'summary']);
+        Route::get('wallets', [\App\Http\Controllers\Admin\AdminFinanceController::class, 'wallets']);
+        Route::get('wallets/{wallet}', [\App\Http\Controllers\Admin\AdminFinanceController::class, 'wallet']);
+        Route::get('transactions', [\App\Http\Controllers\Admin\AdminFinanceController::class, 'transactions']);
+        Route::get('transactions/{transaction}', [\App\Http\Controllers\Admin\AdminFinanceController::class, 'transaction']);
+
         Route::get('monetary', [AdminMonetaryController::class, 'index']);
         Route::get('monetary/{monetaryGift}', [AdminMonetaryController::class, 'show']);
         Route::delete('monetary/{monetaryGift}', [AdminMonetaryController::class, 'destroy']);

@@ -43,6 +43,12 @@ class Transaction extends Model
         return $this->belongsTo(Wallet::class);
     }
 
+    /** Includes deleted users, so old transactions still show who they belong to. */
+    public function user()
+    {
+        return $this->belongsTo(User::class)->withTrashed();
+    }
+
     /* ── Scopes ── */
 
     public function scopeCredits($query)
