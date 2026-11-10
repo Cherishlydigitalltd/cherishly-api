@@ -29,3 +29,6 @@ Schedule::call(fn () => app(\App\Services\MarketplaceService::class)->autoComple
     ->hourly()
     ->name('complete-delivered-vendor-orders')
     ->withoutOverlapping();
+
+// Delete sign-in tokens that expired more than a day ago.
+Schedule::command('sanctum:prune-expired --hours=24')->daily()->name('prune-expired-tokens');

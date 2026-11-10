@@ -126,7 +126,7 @@ class AdminAuthController extends Controller
     private function issueToken(Admin $admin): JsonResponse
     {
         $admin->update(['last_login_at' => now()]);
-        $token = $admin->createToken('admin-token')->plainTextToken;
+        $token = $admin->createToken('admin-token', ['*'], now()->addHours(config('sanctum.admin_token_hours')))->plainTextToken;
 
         return ApiResponse::success('Login successful.', [
             'token' => $token,

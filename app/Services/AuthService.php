@@ -57,7 +57,7 @@ class AuthService
             'email_verified_at' => now(),
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token', ['*'], now()->addDays(config('sanctum.user_token_days')))->plainTextToken;
 
         return [
             'success' => true,
@@ -95,7 +95,7 @@ class AuthService
         // Revoke old tokens
         $user->tokens()->delete();
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token', ['*'], now()->addDays(config('sanctum.user_token_days')))->plainTextToken;
 
         return [
             'success' => true,

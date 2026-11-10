@@ -53,6 +53,15 @@ return [
     'expiration' => null,
 
     /*
+    | Sign-in lifetimes, set on each token when it's created.
+    | Customers: rolling, renewed while the app is in use, so only people
+    | who haven't opened Cherishly for this many days get signed out.
+    | Admins: fixed from sign-in, then sign in again.
+    */
+    'user_token_days' => (int) env('USER_TOKEN_DAYS', 30),
+    'admin_token_hours' => (int) env('ADMIN_TOKEN_HOURS', 12),
+
+    /*
     |--------------------------------------------------------------------------
     | Token Prefix
     |--------------------------------------------------------------------------
