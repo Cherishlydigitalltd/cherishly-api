@@ -143,7 +143,12 @@ class VendorProductController extends Controller
             'You can add up to ' . VendorProduct::MAX_IMAGES . ' photos.');
 
         foreach ($files as $file) {
-            $keep[] = $this->assets->upload($file, 'vendor-products');
+            try {
+                $keep[] = $this->assets->upload($file, 'vendor-products');
+            } catch (\RuntimeException $e) {
+                report($e); // reaches the error-alert email with the asset server's reply
+                abort(422, 'We couldn’t upload your photo. Please try a smaller photo, or try again in a minute.');
+            }
         }
         return $keep;
     }

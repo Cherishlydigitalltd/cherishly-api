@@ -38,7 +38,13 @@ class AssetService
                 'status' => $response->status(),
                 'response' => $response->json(),
             ]);
-            throw new \RuntimeException('Failed to upload file. Please try again.');
+            // Users see the friendly message; the error-alert email also shows the
+            // asset server's reply underneath ("Caused by").
+            throw new \RuntimeException('Failed to upload file. Please try again.', 0, new \RuntimeException(
+                'Asset server replied HTTP ' . $response->status() . ': '
+                . mb_strimwidth((string) $response->body(), 0, 300, '…')
+                . ' (file ' . round($file->getSize() / 1024) . ' KB)'
+            ));
         }
 
         $data = $response->json();

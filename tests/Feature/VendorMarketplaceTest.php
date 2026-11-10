@@ -142,6 +142,26 @@ class VendorMarketplaceTest extends TestCase
         $this->getJson('/api/gifts/catalog?state=Kano')->assertJsonCount(0, 'data.data');
     }
 
+    public function test_failed_photo_upload_gives_a_clear_message_not_a_server_error(): void
+    {
+        $vendorUser = $this->user();
+        Sanctum::actingAs($vendorUser);
+        $this->postJson('/api/vendor/apply', $this->vendorProfile())->assertCreated();
+
+        // The asset server refuses the file (e.g. too large for its upload limit).
+        config(['services.assets.url' => 'https://assets-full.test']);
+        Http::fake(['assets-full.test/upload' => Http::response('<html>413 Request Entity Too Large</html>', 413)]);
+
+        $this->post('/api/vendor/products', [
+            'name' => 'Adidas Samba', 'category' => 'Fashion', 'price' => 28000,
+            'images' => [UploadedFile::fake()->image('shoe.jpg')],
+        ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'We couldn’t upload your photo. Please try a smaller photo, or try again in a minute.');
+
+        $this->assertSame(0, VendorProduct::count());
+    }
+
     public function test_edits_to_a_live_item_wait_for_approval(): void
     {
         $product = $this->liveProduct();

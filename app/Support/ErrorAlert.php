@@ -58,6 +58,10 @@ class ErrorAlert
             'Where:    ' . self::shortPath($e->getFile()) . ':' . $e->getLine(),
         ];
 
+        for ($cause = $e->getPrevious(), $n = 0; $cause && $n < 3; $cause = $cause->getPrevious(), $n++) {
+            $lines[] = 'Caused by: ' . get_class($cause) . ': ' . $cause->getMessage();
+        }
+
         if ($request) {
             $lines[] = 'Request:  ' . $request->method() . ' ' . $request->path();
             $lines[] = 'IP:       ' . $request->ip();

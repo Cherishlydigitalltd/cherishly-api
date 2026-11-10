@@ -138,8 +138,13 @@ class VendorController extends Controller
         if (!$request->hasFile('logo')) {
             return $current;
         }
-        return $current
-            ? $this->assets->replace($current, $request->file('logo'), 'vendors')
-            : $this->assets->upload($request->file('logo'), 'vendors');
+        try {
+            return $current
+                ? $this->assets->replace($current, $request->file('logo'), 'vendors')
+                : $this->assets->upload($request->file('logo'), 'vendors');
+        } catch (\RuntimeException $e) {
+            report($e);
+            abort(422, 'We couldn’t upload your logo. Please try a smaller picture, or try again in a minute.');
+        }
     }
 }
