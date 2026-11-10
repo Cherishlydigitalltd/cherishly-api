@@ -127,8 +127,9 @@ Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->group(function () {
     Route::post('profile/avatar', [ProfileController::class, 'updateAvatar']);
     Route::delete('profile/avatar', [ProfileController::class, 'deleteAvatar']);
     Route::post('profile/change-password', [ProfileController::class, 'changePassword']);
-    Route::get('profile/delete-check', [ProfileController::class, 'deleteCheck']);
-    Route::delete('profile', [ProfileController::class, 'destroy'])->middleware('throttle:5,1');
+    Route::get('profile/delete-request', [ProfileController::class, 'deletionRequest']);
+    Route::post('profile/delete-request', [ProfileController::class, 'requestDeletion'])->middleware('throttle:5,1');
+    Route::delete('profile/delete-request', [ProfileController::class, 'cancelDeletion']);
 
     // Wallet
     Route::get('wallet', [WalletController::class, 'show']);
@@ -344,6 +345,11 @@ Route::prefix('admin')->group(function () {
         Route::put('settings/vendor-commission', [AdminVendorController::class, 'updateCommission']);
 
 
+
+        // Account deletion requests
+        Route::get('deletion-requests', [\App\Http\Controllers\Admin\AdminDeletionRequestController::class, 'index']);
+        Route::put('deletion-requests/{deletionRequest}/complete', [\App\Http\Controllers\Admin\AdminDeletionRequestController::class, 'complete']);
+        Route::put('deletion-requests/{deletionRequest}/reject', [\App\Http\Controllers\Admin\AdminDeletionRequestController::class, 'reject']);
 
         // Customer money (read only)
         Route::get('finance/summary', [\App\Http\Controllers\Admin\AdminFinanceController::class, 'summary']);

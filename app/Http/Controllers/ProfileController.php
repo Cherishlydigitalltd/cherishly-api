@@ -93,38 +93,61 @@ class ProfileController extends Controller
     }
 
     /**
-     * GET /profile/delete-check
-     * What (if anything) stops this account being deleted right now.
+     * GET /profile/delete-request
+     * The user's open deletion request, if any.
      */
-    public function deleteCheck(Request $request, \App\Services\AccountDeletionService $deletion): JsonResponse
+    public function deletionRequest(Request $request): JsonResponse
     {
-        $reasons = $deletion->blockers($request->user());
+        $open = \App\Models\AccountDeletionRequest::where('user_id', $request->user()->id)
+            ->where('status', 'pending')->latest()->first();
 
-        return ApiResponse::success('Checked.', [
-            'can_delete' => $reasons === [],
-            'reasons' => $reasons,
-        ]);
+        return ApiResponse::success('Retrieved.', ['request' => $open?->only(['id', 'status', 'reason', 'created_at'])]);
     }
 
     /**
-     * DELETE /profile
-     * Permanently deletes the signed-in user's account. Needs their password.
+     * POST /profile/delete-request
+     * Asks Cherishly to delete the account. Nothing is deleted now: an admin
+     * reviews the request and carries it out.
      */
-    public function destroy(Request $request, \App\Services\AccountDeletionService $deletion): JsonResponse
+    public function requestDeletion(Request $request): JsonResponse
     {
-        $request->validate(['password' => ['required', 'string']]);
+        $data = $request->validate([
+            'password' => ['required', 'string'],
+            'reason' => ['nullable', 'string', 'max:1000'],
+            'source' => ['nullable', 'in:app,web'],
+        ]);
         $user = $request->user();
 
-        if (!\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+        if (!\Illuminate\Support\Facades\Hash::check($data['password'], $user->password)) {
             return ApiResponse::error('Your password is incorrect.', null, 422);
         }
 
-        try {
-            $deletion->delete($user);
-        } catch (\RuntimeException $e) {
-            return ApiResponse::error($e->getMessage(), null, 422);
-        }
+        $open = \App\Models\AccountDeletionRequest::firstOrCreate(
+            ['user_id' => $user->id, 'status' => 'pending'],
+            [
+                'name' => trim($user->first_name . ' ' . $user->last_name),
+                'email' => $user->email,
+                'reason' => $data['reason'] ?? null,
+                'source' => $data['source'] ?? 'app',
+            ]
+        );
 
-        return ApiResponse::success('Your account has been deleted.');
+        return ApiResponse::success(
+            'We’ve received your request. We’ll delete your account within 30 days and email you when it’s done.',
+            ['request' => $open->only(['id', 'status', 'reason', 'created_at'])]
+        );
+    }
+
+    /**
+     * DELETE /profile/delete-request
+     * Changed your mind: cancels the open request.
+     */
+    public function cancelDeletion(Request $request): JsonResponse
+    {
+        \App\Models\AccountDeletionRequest::where('user_id', $request->user()->id)
+            ->where('status', 'pending')
+            ->update(['status' => 'cancelled', 'processed_at' => now()]);
+
+        return ApiResponse::success('Your deletion request has been cancelled.');
     }
 }

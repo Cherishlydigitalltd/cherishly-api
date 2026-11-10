@@ -47,10 +47,25 @@ class AccountDeletionTest extends TestCase
         ]);
     }
 
+    private function admin(): Admin
+    {
+        return Admin::firstOrCreate(['email' => 'admin@x.test'], [
+            'first_name' => 'A', 'last_name' => 'D', 'password' => 'secret-pass', 'role' => 'admin', 'is_active' => true,
+        ]);
+    }
+
+    /** The user asks; an admin then carries it out. */
     private function deleteAs(User $user, string $password = 'secret-pass')
     {
         Sanctum::actingAs($user);
-        return $this->deleteJson('/api/profile', ['password' => $password]);
+        $res = $this->postJson('/api/profile/delete-request', ['password' => $password]);
+        if ($res->status() !== 200) {
+            return $res;
+        }
+        app('auth')->forgetGuards();
+        Sanctum::actingAs($this->admin());
+        $id = $res->json('data.request.id');
+        return $this->putJson("/api/admin/deletion-requests/{$id}/complete");
     }
 
     public function test_deletes_personal_data_and_keeps_anonymised_payment_records(): void
@@ -69,7 +84,7 @@ class AccountDeletionTest extends TestCase
         $wall->wishes()->create(['name' => 'Funmi', 'message' => 'Congratulations!']);
         $user->createToken('auth_token');
 
-        $this->deleteAs($user)->assertOk()->assertJsonPath('message', 'Your account has been deleted.');
+        $this->deleteAs($user)->assertOk()->assertJsonPath('message', 'Account deleted.');
 
         $row = User::withTrashed()->find($user->id);
         $this->assertNotNull($row->deleted_at);
@@ -113,12 +128,7 @@ class AccountDeletionTest extends TestCase
         $user = $this->user();
         $this->wallet($user, 3000, 1000);
 
-        Sanctum::actingAs($user);
-        $check = $this->getJson('/api/profile/delete-check')->assertOk();
-        $this->assertFalse($check->json('data.can_delete'));
-        $this->assertStringContainsString('still settling', $check->json('data.reasons.0'));
-
-        $this->deleteAs($user)->assertStatus(422);
+        $this->deleteAs($user)->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'still settling'));
         $this->assertSame('Ada', $user->fresh()->first_name);
     }
 
@@ -130,7 +140,7 @@ class AccountDeletionTest extends TestCase
             'user_id' => $user->id, 'type' => 'debit', 'amount' => 2000, 'description' => 'Withdrawal', 'reference' => 'WD-1', 'status' => 'pending',
         ]);
 
-        $this->deleteAs($user)->assertStatus(422)->assertJsonPath('message', 'A withdrawal is still being processed. Try again once it has gone through.');
+        $this->deleteAs($user)->assertStatus(422)->assertJsonPath('message', 'Can’t delete yet: A withdrawal is still being processed. Try again once it has gone through.');
     }
 
     public function test_open_vendor_order_blocks_deletion(): void
@@ -150,13 +160,10 @@ class AccountDeletionTest extends TestCase
             'commission_amount' => 5000, 'vendor_amount' => 45000, 'status' => 'dispatched',
         ]);
 
-        Sanctum::actingAs($user);
-        $this->assertFalse($this->getJson('/api/profile/delete-check')->json('data.can_delete'));
         $this->deleteAs($user)->assertStatus(422);
 
-        // The vendor can't delete either while the order is open.
-        Sanctum::actingAs($vendorUser);
-        $this->assertStringContainsString('orders that aren’t finished', $this->getJson('/api/profile/delete-check')->json('data.reasons.0'));
+        // The vendor can't be deleted either while the order is open.
+        $this->assertStringContainsString('orders that aren’t finished', app(\App\Services\AccountDeletionService::class)->blockers($vendorUser)[0]);
     }
 
     public function test_deleted_user_cannot_sign_in(): void
@@ -173,14 +180,58 @@ class AccountDeletionTest extends TestCase
         $user = $this->user();
         $this->wallet($user, 500, 500);
 
-        Sanctum::actingAs(Admin::create([
-            'first_name' => 'A', 'last_name' => 'D', 'email' => 'admin@x.test', 'password' => 'secret-pass', 'role' => 'admin', 'is_active' => true,
-        ]));
+        Sanctum::actingAs($this->admin());
         $this->deleteJson("/api/admin/users/{$user->id}")->assertStatus(422);
         $this->assertNull($user->fresh()->deleted_at);
 
         Wallet::where('user_id', $user->id)->update(['balance' => 0, 'available_balance' => 0, 'pending_settlement' => 0]);
         $this->deleteJson("/api/admin/users/{$user->id}")->assertOk();
         $this->assertSame('Deleted', User::withTrashed()->find($user->id)->first_name);
+    }
+
+    public function test_submitting_a_request_deletes_nothing(): void
+    {
+        $user = $this->user();
+        $this->wallet($user, 5000, 5000); // even with money, the request is accepted
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/profile/delete-request', ['password' => 'secret-pass', 'reason' => 'Not using it'])
+            ->assertOk()->assertJsonPath('data.request.status', 'pending');
+        $this->postJson('/api/profile/delete-request', ['password' => 'secret-pass'])->assertOk(); // no duplicate
+
+        $this->assertSame(1, \App\Models\AccountDeletionRequest::count());
+        $this->assertNull($user->fresh()->deleted_at);
+        $this->assertSame('Ada', $user->fresh()->first_name);
+        $this->getJson('/api/profile/delete-request')->assertJsonPath('data.request.status', 'pending');
+
+        // The user can still sign in and change their mind.
+        $this->deleteJson('/api/profile/delete-request')->assertOk();
+        $this->getJson('/api/profile/delete-request')->assertJsonPath('data.request', null);
+        $this->assertSame('cancelled', \App\Models\AccountDeletionRequest::first()->status);
+    }
+
+    public function test_admin_sees_requests_with_blockers_and_can_reject(): void
+    {
+        $user = $this->user();
+        $this->wallet($user, 2000, 2000);
+        Sanctum::actingAs($user);
+        $id = $this->postJson('/api/profile/delete-request', ['password' => 'secret-pass', 'reason' => 'Moving abroad'])->json('data.request.id');
+
+        // Customers can't see the admin list.
+        $this->getJson('/api/admin/deletion-requests')->assertStatus(401);
+
+        app('auth')->forgetGuards();
+        Sanctum::actingAs($this->admin());
+        $res = $this->getJson('/api/admin/deletion-requests?status=pending')->assertOk();
+        $this->assertSame(1, $res->json('data.pending_count'));
+        $this->assertSame('ada@x.test', $res->json('data.page.data.0.email'));
+        $this->assertSame('Moving abroad', $res->json('data.page.data.0.reason'));
+        $this->assertStringContainsString('₦2,000.00', $res->json('data.page.data.0.blockers.0'));
+
+        $this->putJson("/api/admin/deletion-requests/{$id}/reject", [])->assertStatus(422); // note required
+        $this->putJson("/api/admin/deletion-requests/{$id}/reject", ['note' => 'Withdraw your balance first'])->assertOk();
+        $this->assertSame('rejected', \App\Models\AccountDeletionRequest::find($id)->status);
+        $this->assertNull($user->fresh()->deleted_at);
+        $this->putJson("/api/admin/deletion-requests/{$id}/complete")->assertStatus(422); // already dealt with
     }
 }
