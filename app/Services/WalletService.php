@@ -261,6 +261,22 @@ class WalletService
         }
 
         return DB::transaction(function () use ($wallet, $user, $amount, $fee) {
+            // Lock the wallet row so two withdrawals sent at the same moment
+            // run one after the other. Without this, both could pass the
+            // balance check above before either deducted, paying out the
+            // same money twice. The checks are repeated on the locked,
+            // freshly-read row.
+            $wallet = Wallet::whereKey($wallet->id)->lockForUpdate()->first();
+
+            if ((float) $wallet->available_balance < $fee['gross_amount']) {
+                return ['success' => false, 'message' => 'Insufficient available balance.'];
+            }
+
+            $limitCheck = $this->checkDailyWithdrawalLimit($wallet, $amount);
+            if (!$limitCheck['success']) {
+                return $limitCheck;
+            }
+
             $reference = 'WD-' . strtoupper(uniqid());
 
             // Deduct from both balance and available_balance
