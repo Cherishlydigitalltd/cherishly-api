@@ -260,7 +260,12 @@ class WalletService
             ];
         }
 
-        return DB::transaction(function () use ($wallet, $user, $amount, $fee) {
+        // Step 1: take the money out of the wallet and record the pending
+        // withdrawal, then COMMIT, before talking to the payout provider.
+        // If the request to the provider then hangs or PHP is killed
+        // mid-call, the deduction is already saved, so the money can't be
+        // both sent and left in the wallet.
+        $debit = DB::transaction(function () use ($wallet, $user, $amount, $fee) {
             // Lock the wallet row so two withdrawals sent at the same moment
             // run one after the other. Without this, both could pass the
             // balance check above before either deducted, paying out the
@@ -298,42 +303,88 @@ class WalletService
                 'status' => 'pending',
             ]);
 
-            // Send net amount to gateway
-            $result = $this->gatewayService->initiateWithdrawal([
+            return ['success' => true, 'transaction' => $transaction, 'wallet' => $wallet];
+        });
+
+        if (!$debit['success']) {
+            return $debit;
+        }
+
+        /** @var \App\Models\Transaction $transaction */
+        $transaction = $debit['transaction'];
+        $wallet = $debit['wallet'];
+        $reference = $transaction->reference;
+
+        // Step 2: ask the provider to send the net amount.
+        $result = $this->gatewayService->initiateWithdrawal([
+            'reference' => $reference,
+            'amount' => $fee['net_amount'],
+            'account_number' => $wallet->account_number,
+            'account_name' => $wallet->account_name,
+            'bank_code' => $wallet->bank_code,
+            'bank_name' => $wallet->bank_name,
+            'narration' => 'Cherishly wallet withdrawal',
+        ]);
+
+        $done = [
+            'success' => true,
+            'message' => 'Withdrawal initiated. You will receive funds within 24 hours.',
+            'reference' => $reference,
+            'amount' => $fee['gross_amount'],
+            'fee_amount' => $fee['fee_amount'],
+            'net_amount' => $fee['net_amount'],
+            'fee_waived' => $fee['fee_rate'] === 0,
+        ];
+
+        if ($result['success']) {
+            return $done;
+        }
+
+        // We don't know whether the provider sent the money (timeout,
+        // provider error, duplicate reference). Refunding now could pay the
+        // customer twice, so leave it pending: the provider's webhook will
+        // mark it successful or failed (and refund). The admin Finance page
+        // flags withdrawals pending for more than a day.
+        if (!empty($result['uncertain'])) {
+            Log::warning('Withdrawal outcome unknown; left pending for the webhook', [
                 'reference' => $reference,
-                'amount' => $fee['net_amount'],
-                'account_number' => $wallet->account_number,
-                'account_name' => $wallet->account_name,
-                'bank_code' => $wallet->bank_code,
-                'bank_name' => $wallet->bank_name,
-                'narration' => 'Cherishly wallet withdrawal',
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'error' => $result['message'],
             ]);
 
-            // Gateway failed — reverse both deductions
-            if (!$result['success']) {
-                $wallet->increment('balance', $fee['gross_amount']);
-                $wallet->increment('available_balance', $fee['gross_amount']);
-                $transaction->update(['status' => 'failed']);
+            return ['message' => 'Your withdrawal is being processed. If it doesn’t go through, the money will return to your wallet.'] + $done;
+        }
 
-                Log::error('Withdrawal gateway failed', [
-                    'reference' => $reference,
-                    'user_id' => $user->id,
-                    'amount' => $amount,
-                    'error' => $result['message'],
-                ]);
+        // The provider clearly refused it, so nothing was sent: put the money back.
+        $this->reverseWithdrawal($transaction);
 
-                return ['success' => false, 'message' => $result['message']];
+        Log::error('Withdrawal gateway failed', [
+            'reference' => $reference,
+            'user_id' => $user->id,
+            'amount' => $amount,
+            'error' => $result['message'],
+        ]);
+
+        return ['success' => false, 'message' => $result['message']];
+    }
+
+    /**
+     * Refund a pending withdrawal the provider refused. Locked and only
+     * acts while still pending, so a later "failed" webhook for the same
+     * reference can't refund it a second time.
+     */
+    private function reverseWithdrawal(\App\Models\Transaction $transaction): void
+    {
+        DB::transaction(function () use ($transaction) {
+            $tx = \App\Models\Transaction::whereKey($transaction->id)->lockForUpdate()->first();
+            if (!$tx || $tx->status !== 'pending') {
+                return;
             }
-
-            return [
-                'success' => true,
-                'message' => 'Withdrawal initiated. You will receive funds within 24 hours.',
-                'reference' => $reference,
-                'amount' => $fee['gross_amount'],
-                'fee_amount' => $fee['fee_amount'],
-                'net_amount' => $fee['net_amount'],
-                'fee_waived' => $fee['fee_rate'] === 0,
-            ];
+            $wallet = Wallet::whereKey($tx->wallet_id)->lockForUpdate()->first();
+            $wallet->increment('balance', $tx->amount);
+            $wallet->increment('available_balance', $tx->amount);
+            $tx->update(['status' => 'failed']);
         });
     }
 

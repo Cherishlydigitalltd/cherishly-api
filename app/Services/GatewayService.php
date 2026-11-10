@@ -96,6 +96,16 @@ class GatewayService
 
     /* ── Initiate Withdrawal ── */
 
+    /**
+     * Ask the payout provider to send money to a bank account.
+     *
+     * Returns success=false with uncertain=true when we can't tell whether
+     * the provider accepted the payout (timeout, provider error, duplicate
+     * reference). Callers must NOT refund or retry with a new reference in
+     * that case: the payout may already be on its way, and the webhook
+     * will settle it. uncertain=false means the provider clearly refused
+     * it (or we never reached it), so nothing was sent.
+     */
     public function initiateWithdrawal(array $data): array
     {
         try {
@@ -103,7 +113,8 @@ class GatewayService
                 'X-API-Key' => $this->apiKey,
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-            ])->post("{$this->baseUrl}/api/Payouts/initiate", [
+            ])->connectTimeout(10)->timeout(20)
+              ->post("{$this->baseUrl}/api/Payouts/initiate", [
                         'clientId' => $this->clientId,
                         'reference' => $data['reference'],
                         'amount' => $data['amount'],
@@ -116,13 +127,21 @@ class GatewayService
                     ]);
 
             if (!$response->successful()) {
+                $status = $response->status();
+                // 5xx: the provider broke, possibly after accepting it.
+                // 408: it timed out on their side. 409: that reference
+                // already exists, i.e. an earlier attempt got through.
+                $uncertain = $status >= 500 || in_array($status, [408, 409], true);
+
                 Log::error('Gateway withdrawal failed', [
-                    'status' => $response->status(),
+                    'status' => $status,
+                    'uncertain' => $uncertain,
                     'response' => $response->json(),
-                    'data' => $data,
+                    'reference' => $data['reference'],
                 ]);
                 return [
                     'success' => false,
+                    'uncertain' => $uncertain,
                     'message' => $response->json('message') ?? 'Gateway error. Please try again.',
                 ];
             }
@@ -134,8 +153,21 @@ class GatewayService
             ];
 
         } catch (\Exception $e) {
-            Log::error('Gateway connection failed', ['error' => $e->getMessage()]);
-            return ['success' => false, 'message' => 'Unable to connect to payment gateway. Please try again.'];
+            // Couldn't resolve or connect (cURL 6 / 7): the request never
+            // left, so nothing was sent. Anything else (usually a timeout
+            // after sending) might have gone through.
+            $neverSent = (bool) preg_match('/cURL error (6|7):/', $e->getMessage());
+
+            Log::error('Gateway connection failed', [
+                'error' => $e->getMessage(),
+                'uncertain' => !$neverSent,
+                'reference' => $data['reference'] ?? null,
+            ]);
+            return [
+                'success' => false,
+                'uncertain' => !$neverSent,
+                'message' => 'Unable to connect to payment gateway. Please try again.',
+            ];
         }
     }
 

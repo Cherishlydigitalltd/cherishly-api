@@ -358,7 +358,14 @@ class MarketplaceService
             'narration' => "Cherishly order {$order->reference}",
         ]);
 
-        if (!$result['success']) {
+        if (!$result['success'] && !empty($result['uncertain'])) {
+            // The payout may have gone through. Leave it "processing" so the
+            // webhook settles it; marking it failed would let an admin retry
+            // under a new reference and pay the vendor twice.
+            Log::warning('Vendor payout outcome unknown; left processing for the webhook', [
+                'order' => $order->reference, 'payout_reference' => $order->payout_reference, 'error' => $result['message'] ?? null,
+            ]);
+        } elseif (!$result['success']) {
             $order->update(['payout_status' => 'failed']);
             Log::error('Vendor payout failed to start', ['order' => $order->reference, 'error' => $result['message'] ?? null]);
         }
