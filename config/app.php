@@ -124,4 +124,11 @@ return [
     ],
 
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+
+    /*
+    | Where server-error alerts are emailed (see App\Support\ErrorAlert).
+    | Leave empty to turn alerts off.
+    */
+    'alert_email' => env('ALERT_EMAIL'),
+
 ];

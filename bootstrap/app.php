@@ -28,6 +28,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
 
+        // Email ALERT_EMAIL about real server errors (see App\Support\ErrorAlert).
+        $exceptions->report(function (\Throwable $e) {
+            \App\Support\ErrorAlert::report($e);
+        });
+
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return ApiResponse::validationError($e->errors(), 'Validation failed');

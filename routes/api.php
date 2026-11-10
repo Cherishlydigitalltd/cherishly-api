@@ -44,6 +44,8 @@ Route::prefix('webhooks')->group(function () {
 // Called every minute by an outside cron service (the host has no cron).
 Route::get('cron/run', [\App\Http\Controllers\CronController::class, 'run'])
     ->middleware('throttle:10,1');
+Route::get('cron/test-alert', [\App\Http\Controllers\CronController::class, 'testAlert'])
+    ->middleware('throttle:3,1');
 
 /*
 |--------------------------------------------------------------------------
