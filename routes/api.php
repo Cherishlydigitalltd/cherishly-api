@@ -127,6 +127,8 @@ Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->group(function () {
     Route::post('profile/avatar', [ProfileController::class, 'updateAvatar']);
     Route::delete('profile/avatar', [ProfileController::class, 'deleteAvatar']);
     Route::post('profile/change-password', [ProfileController::class, 'changePassword']);
+    Route::get('profile/delete-check', [ProfileController::class, 'deleteCheck']);
+    Route::delete('profile', [ProfileController::class, 'destroy'])->middleware('throttle:5,1');
 
     // Wallet
     Route::get('wallet', [WalletController::class, 'show']);

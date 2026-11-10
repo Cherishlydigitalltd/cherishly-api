@@ -91,4 +91,40 @@ class ProfileController extends Controller
 
         return ApiResponse::success($result['message']);
     }
+
+    /**
+     * GET /profile/delete-check
+     * What (if anything) stops this account being deleted right now.
+     */
+    public function deleteCheck(Request $request, \App\Services\AccountDeletionService $deletion): JsonResponse
+    {
+        $reasons = $deletion->blockers($request->user());
+
+        return ApiResponse::success('Checked.', [
+            'can_delete' => $reasons === [],
+            'reasons' => $reasons,
+        ]);
+    }
+
+    /**
+     * DELETE /profile
+     * Permanently deletes the signed-in user's account. Needs their password.
+     */
+    public function destroy(Request $request, \App\Services\AccountDeletionService $deletion): JsonResponse
+    {
+        $request->validate(['password' => ['required', 'string']]);
+        $user = $request->user();
+
+        if (!\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+            return ApiResponse::error('Your password is incorrect.', null, 422);
+        }
+
+        try {
+            $deletion->delete($user);
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), null, 422);
+        }
+
+        return ApiResponse::success('Your account has been deleted.');
+    }
 }

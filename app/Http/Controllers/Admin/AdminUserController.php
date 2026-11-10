@@ -49,9 +49,14 @@ class AdminUserController extends Controller
         return ApiResponse::success('User activated successfully.');
     }
 
-    public function destroy(User $user): JsonResponse
+    /** Deletes the account the same way a user would, so money and orders are safe. */
+    public function destroy(User $user, \App\Services\AccountDeletionService $deletion): JsonResponse
     {
-        $user->delete();
+        try {
+            $deletion->delete($user, 'admin');
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error('Can’t delete yet: ' . $e->getMessage(), null, 422);
+        }
         return ApiResponse::success('User deleted successfully.');
     }
 
