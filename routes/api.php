@@ -286,6 +286,8 @@ Route::prefix('admin')->group(function () {
 
     // Auth — no middleware
     Route::post('login', [AdminAuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('login/verify', [AdminAuthController::class, 'verifyCode'])->middleware('throttle:login');
+    Route::post('login/resend', [AdminAuthController::class, 'resendCode'])->middleware('throttle:login');
 
     // Protected admin routes
     Route::middleware(['auth:sanctum', 'admin'])->group(function () {

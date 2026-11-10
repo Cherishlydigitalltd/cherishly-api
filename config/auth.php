@@ -114,4 +114,12 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+
+    /*
+    | Admin two-step sign-in: after the password, a 6-digit code is emailed
+    | to the admin. Turn on only once every admin's email inbox works,
+    | otherwise they can't sign in.
+    */
+    'admin_two_factor' => (bool) env('ADMIN_TWO_FACTOR', false),
+
 ];
