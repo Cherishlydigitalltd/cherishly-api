@@ -49,7 +49,7 @@ class PayoutOutcomeTest extends TestCase
         return Wallet::create([
             'user_id' => $user->id, 'balance' => $available, 'available_balance' => $available,
             'bank_name' => 'Access Bank', 'bank_code' => '044',
-            'account_number' => '0123456789', 'account_name' => 'ADA OBI',
+            'account_number' => '0123456789', 'account_name' => 'ADA OBI', 'bvn_verified' => true,
         ]);
     }
 

@@ -90,6 +90,9 @@ class AdminFinanceController extends Controller
         if ($request->boolean('has_balance')) {
             $query->where('balance', '>', 0);
         }
+        if ($request->filled('bvn')) {
+            $query->where('bvn_verified', $request->query('bvn') === 'verified');
+        }
 
         $sort = $request->query('sort', 'balance');
         if (in_array($sort, ['balance', 'available_balance', 'pending_settlement', 'total_received', 'total_withdrawn'], true)) {
@@ -105,6 +108,8 @@ class AdminFinanceController extends Controller
     public function wallet(Wallet $wallet): JsonResponse
     {
         $wallet->load(self::USER_FIELDS);
+        // Admins see the last 4 digits only, never the full BVN.
+        $wallet->setAttribute('bvn_last4', $wallet->bvnLast4());
 
         $totals = $wallet->transactions()
             ->selectRaw("type, status, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount")

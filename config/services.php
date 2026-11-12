@@ -34,6 +34,13 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    // BVN verification (KYC) — Scapa.
+    'scapa' => [
+        'url' => env('SCAPA_URL', 'https://thirdparty.scapa.io'),
+        'api_key' => env('SCAPA_API_KEY'),
+        'client_id' => env('SCAPA_CLIENT_ID'),
+    ],
+
     // Secret for /api/cron/run (see CronController). Empty = endpoint off.
     'cron' => [
         'secret' => env('CRON_SECRET'),

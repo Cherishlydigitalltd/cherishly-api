@@ -16,6 +16,8 @@ class UpdateBankDetailsRequest extends FormRequest
             'account_number' => ['required', 'string', 'size:10'],
             'account_name'   => ['required', 'string', 'max:200'],
             'bank_code'      => ['required', 'string', 'max:10'],
+            // Required unless the BVN is already verified (see WalletService).
+            'bvn'            => ['nullable', 'digits:11'],
         ];
     }
 
@@ -23,6 +25,7 @@ class UpdateBankDetailsRequest extends FormRequest
     {
         return [
             'account_number.size' => 'Account number must be exactly 10 digits.',
+            'bvn.digits' => 'Your BVN must be exactly 11 digits.',
         ];
     }
 }

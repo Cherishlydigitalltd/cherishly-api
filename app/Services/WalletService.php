@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Services\BvnService;
 use App\Models\Wallet;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +60,8 @@ class WalletService
                 'account_number' => $wallet->account_number,
                 'account_name' => $wallet->account_name,
                 'bank_code' => $wallet->bank_code,
-                'bvn_verified' => $wallet->bvn_verified ?? false,
+                'bvn_verified' => (bool) $wallet->bvn_verified,
+                'bvn_last4' => $wallet->bvnLast4(),
             ],
         ];
     }
@@ -100,18 +102,52 @@ class WalletService
             ];
         }
 
-        // 3. Store BVN encrypted (verification to be done via KYC provider later)
+        // 3. BVN (KYC): required the first time, and whenever a different BVN is
+        //    given. Checked with Scapa: it must be valid, not watchlisted, and in
+        //    this user's name. The BVN is stored encrypted.
         $wallet = $this->getWallet($user);
+        $bvn = $data['bvn'] ?? null;
+        $kyc = [];
+
+        if (!$bvn && !$wallet->bvn_verified) {
+            return ['success' => false, 'message' => 'Please enter your BVN. We need it to verify your identity before paying money out.'];
+        }
+
+        if ($bvn && !($wallet->bvn_verified && $wallet->bvn() === $bvn)) {
+            $hash = BvnService::hash($bvn);
+            $usedElsewhere = \App\Models\Wallet::where('bvn_hash', $hash)
+                ->where('user_id', '!=', $user->id)->where('bvn_verified', true)->exists();
+            if ($usedElsewhere) {
+                Log::warning('BVN already used by another account', ['user_id' => $user->id]);
+                return ['success' => false, 'message' => 'This BVN is already linked to another Cherishly account. Please contact support@cherishlyng.com.'];
+            }
+
+            $check = app(BvnService::class)->verify($user, $bvn);
+            if (!$check['success']) {
+                return ['success' => false, 'message' => $check['message']];
+            }
+
+            $id = $check['identity'];
+            $kyc = [
+                'bvn_verified' => true,
+                'bvn_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString($bvn),
+                'bvn_hash' => $hash,
+                'bvn_full_name' => $id['full_name'],
+                'bvn_date_of_birth' => $id['date_of_birth'],
+                'bvn_address' => $id['address'],
+                'bvn_state' => $id['state'],
+                'bvn_lga' => $id['lga'],
+                'bvn_reference' => $id['reference'],
+                'bvn_verified_at' => now(),
+            ];
+        }
+
         $wallet->update([
             'bank_name' => $data['bank_name'],
             'account_number' => $data['account_number'],
             'account_name' => $resolvedName,
             'bank_code' => $data['bank_code'],
-            'bvn_verified' => false, // will be updated when KYC provider verifies
-            'bvn_encrypted' => !empty($data['bvn'])
-                ? \Illuminate\Support\Facades\Crypt::encryptString($data['bvn'])
-                : null,
-        ]);
+        ] + $kyc);
 
         return [
             'success' => true,
@@ -257,6 +293,15 @@ class WalletService
             return [
                 'success' => false,
                 'message' => 'Please add your bank details before withdrawing.',
+            ];
+        }
+
+        // KYC: payouts only to a BVN-verified account holder.
+        if (!$wallet->bvn_verified) {
+            return [
+                'success' => false,
+                'message' => 'Please verify your BVN before withdrawing. Go to your payout account and add your BVN.',
+                'needs_bvn' => true,
             ];
         }
 

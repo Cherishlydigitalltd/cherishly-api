@@ -53,6 +53,8 @@ class WalletController extends Controller
             'account_number' => $wallet->account_number,
             'account_name' => $wallet->account_name,
             'bank_code' => $wallet->bank_code,
+            'bvn_verified' => (bool) $wallet->bvn_verified,
+            'bvn_last4' => $wallet->bvnLast4(),
         ]);
     }
 
@@ -64,7 +66,7 @@ class WalletController extends Controller
         $result = $this->walletService->withdraw($request->user(), $request->amount);
 
         if (!$result['success']) {
-            return ApiResponse::error($result['message']);
+            return ApiResponse::error($result['message'], !empty($result['needs_bvn']) ? ['needs_bvn' => true] : null);
         }
 
         return ApiResponse::success($result['message'], [
