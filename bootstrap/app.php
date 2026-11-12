@@ -15,6 +15,16 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
+        // The API's front page is registered outside the "web" group: that
+        // group starts a session, and sessions use a database table this
+        // API doesn't have (it signs people in with tokens), so the page
+        // failed with a 500. It just says what this is and stays out of Google.
+        then: function () {
+            \Illuminate\Support\Facades\Route::get('/', fn () => response()->json([
+                'name' => 'Cherishly API',
+                'website' => 'https://cherishlyng.com',
+            ])->header('X-Robots-Tag', 'noindex, nofollow'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->use([
