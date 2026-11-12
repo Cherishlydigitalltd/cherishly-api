@@ -113,33 +113,12 @@ class WalletService
             return ['success' => false, 'message' => 'Please enter your BVN. We need it to verify your identity before paying money out.'];
         }
 
-        if ($bvn && !($wallet->bvn_verified && $wallet->bvn() === $bvn)) {
-            $hash = BvnService::hash($bvn);
-            $usedElsewhere = \App\Models\Wallet::where('bvn_hash', $hash)
-                ->where('user_id', '!=', $user->id)->where('bvn_verified', true)->exists();
-            if ($usedElsewhere) {
-                Log::warning('BVN already used by another account', ['user_id' => $user->id]);
-                return ['success' => false, 'message' => 'This BVN is already linked to another Cherishly account. Please contact support@cherishlyng.com.'];
-            }
-
-            $check = app(BvnService::class)->verify($user, $bvn);
+        if ($bvn) {
+            $check = $this->checkBvn($user, $wallet, $bvn);
             if (!$check['success']) {
-                return ['success' => false, 'message' => $check['message']];
+                return $check;
             }
-
-            $id = $check['identity'];
-            $kyc = [
-                'bvn_verified' => true,
-                'bvn_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString($bvn),
-                'bvn_hash' => $hash,
-                'bvn_full_name' => $id['full_name'],
-                'bvn_date_of_birth' => $id['date_of_birth'],
-                'bvn_address' => $id['address'],
-                'bvn_state' => $id['state'],
-                'bvn_lga' => $id['lga'],
-                'bvn_reference' => $id['reference'],
-                'bvn_verified_at' => now(),
-            ];
+            $kyc = $check['kyc'];
         }
 
         $wallet->update([
@@ -153,6 +132,47 @@ class WalletService
             'success' => true,
             'wallet' => $wallet->fresh(),
         ];
+    }
+
+    /**
+     * Check a BVN for this user (valid, not watchlisted, in their name, not
+     * on another account). Returns the wallet fields to save, or [] when it's
+     * the BVN already verified on this wallet. Nothing is saved here.
+     *
+     * @return array{success: bool, message?: string, kyc?: array}
+     */
+    public function checkBvn(User $user, Wallet $wallet, string $bvn): array
+    {
+        if ($wallet->bvn_verified && $wallet->bvn() === $bvn) {
+            return ['success' => true, 'kyc' => []];
+        }
+
+        $hash = BvnService::hash($bvn);
+        $usedElsewhere = Wallet::where('bvn_hash', $hash)
+            ->where('user_id', '!=', $user->id)->where('bvn_verified', true)->exists();
+        if ($usedElsewhere) {
+            Log::warning('BVN already used by another account', ['user_id' => $user->id]);
+            return ['success' => false, 'message' => 'This BVN is already linked to another Cherishly account. Please contact support@cherishlyng.com.'];
+        }
+
+        $check = app(BvnService::class)->verify($user, $bvn);
+        if (!$check['success']) {
+            return ['success' => false, 'message' => $check['message']];
+        }
+
+        $id = $check['identity'];
+        return ['success' => true, 'kyc' => [
+            'bvn_verified' => true,
+            'bvn_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString($bvn),
+            'bvn_hash' => $hash,
+            'bvn_full_name' => $id['full_name'],
+            'bvn_date_of_birth' => $id['date_of_birth'],
+            'bvn_address' => $id['address'],
+            'bvn_state' => $id['state'],
+            'bvn_lga' => $id['lga'],
+            'bvn_reference' => $id['reference'],
+            'bvn_verified_at' => now(),
+        ]];
     }
 
     /* ── Withdraw ── */

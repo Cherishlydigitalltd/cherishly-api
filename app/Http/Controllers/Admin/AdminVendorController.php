@@ -56,6 +56,11 @@ class AdminVendorController extends Controller
     public function vendor(Vendor $vendor): JsonResponse
     {
         $vendor->load('user:id,first_name,last_name,email,phone')->loadCount('products');
+        $wallet = \App\Models\Wallet::where('user_id', $vendor->user_id)->first();
+        $vendor->setAttribute('identity', $vendor->identity() + [
+            'wallet_id' => $wallet?->id,
+            'bvn_verified_at' => $wallet?->bvn_verified ? $wallet->bvn_verified_at : null,
+        ]);
         return ApiResponse::success('Vendor retrieved.', [
             'vendor' => $vendor,
             'products' => $vendor->products()->latest()->get(),

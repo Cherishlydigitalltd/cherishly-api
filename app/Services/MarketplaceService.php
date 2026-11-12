@@ -347,6 +347,12 @@ class MarketplaceService
                 "We couldn’t pay you for {$order->reference} because your bank account isn’t set up. Add it in Settings and we’ll pay you.", '🏦');
             return $order->fresh();
         }
+        if (!$vendor->bvnVerified()) {
+            $order->update(['payout_status' => 'failed']);
+            $this->notifyVendor($order, 'Verify your BVN to get paid',
+                "We couldn’t pay you for {$order->reference} yet because we need to verify your identity. Add your BVN in Settings → Bank account and we’ll pay you straight away.", '🪪');
+            return $order->fresh();
+        }
 
         $result = $this->gateway->initiateWithdrawal([
             'reference' => $order->payout_reference,

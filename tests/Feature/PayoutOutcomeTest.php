@@ -136,6 +136,7 @@ class PayoutOutcomeTest extends TestCase
     {
         $celebrant = User::create(['first_name' => 'C', 'last_name' => 'B', 'email' => 'c@x.test', 'password' => 'secret-pass']);
         $vendorUser = User::create(['first_name' => 'V', 'last_name' => 'D', 'email' => 'v@x.test', 'password' => 'secret-pass']);
+        \App\Models\Wallet::create(['user_id' => $vendorUser->id, 'bvn_verified' => true]); // owner's BVN checked
         $vendor = Vendor::create([
             'user_id' => $vendorUser->id, 'business_name' => 'Gifts Ltd', 'contact_name' => 'Bola', 'phone' => '08000000000',
             'email' => 'shop@x.test', 'address' => '1 Shop St', 'city' => 'Ikeja', 'state' => 'Lagos',

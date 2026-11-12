@@ -73,6 +73,7 @@ class VendorMarketplaceTest extends TestCase
     private function liveProduct(array $product = []): VendorProduct
     {
         $user = $this->user();
+        \App\Models\Wallet::create(['user_id' => $user->id, 'bvn_verified' => true]); // owner's BVN checked
         $vendor = Vendor::create($this->vendorProfile() + [
             'user_id' => $user->id, 'status' => 'approved', 'approved_at' => now(),
             'bank_code' => '058', 'bank_name' => 'GTBank', 'account_number' => '0123456789', 'account_name' => 'GIFTS LTD',

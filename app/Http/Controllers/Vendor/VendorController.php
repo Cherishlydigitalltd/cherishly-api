@@ -39,6 +39,7 @@ class VendorController extends Controller
         }
 
         $orders = VendorOrder::where('vendor_id', $vendor->id);
+        $vendor->setAttribute('identity', $vendor->identity());
         return ApiResponse::success('Vendor retrieved.', [
             'vendor' => $vendor,
             'summary' => [
@@ -87,29 +88,66 @@ class VendorController extends Controller
         return ApiResponse::success('Profile updated.', $vendor->fresh());
     }
 
-    /** PUT /vendor/bank: checked with the bank before saving. */
+    /**
+     * PUT /vendor/bank: checked with the bank before saving.
+     *
+     * The account can be in the business's name (unlike customer
+     * withdrawals). What's required is the owner's own BVN: checked with
+     * Scapa against the name on their Cherishly account and kept on their
+     * wallet, so someone who already verified as a customer isn't asked again.
+     */
     public function bank(Request $request): JsonResponse
     {
         $data = $request->validate([
             'bank_code' => ['required', 'string', 'max:20'],
             'bank_name' => ['required', 'string', 'max:100'],
             'account_number' => ['required', 'digits:10'],
+            'bvn' => ['nullable', 'digits:11'],
+        ], [
+            'bvn.digits' => 'Your BVN is 11 digits. Dial *565*0# on the phone number linked to your bank to get it.',
         ]);
+
+        $user = $request->user();
+        $vendor = $user->vendor;
+        $walletService = app(\App\Services\WalletService::class);
+        $wallet = $walletService->getWallet($user);
+        $bvn = $data['bvn'] ?? null;
+        unset($data['bvn']);
+
+        if (!$bvn && !$wallet->bvn_verified) {
+            return ApiResponse::error(
+                'Please enter your BVN. For a business account, use the BVN of the owner or a director: that’s you, as the person on this Cherishly account.',
+                ['needs_bvn' => true],
+                422,
+            );
+        }
 
         $resolved = $this->gateway->resolveBankAccount($data['account_number'], $data['bank_code']);
         if (!($resolved['success'] ?? false) || empty($resolved['account_name'])) {
             return ApiResponse::error('We couldn’t verify that account. Check the number and bank.', statusCode: 422);
         }
 
-        $vendor = $request->user()->vendor;
+        if ($bvn) {
+            $check = $walletService->checkBvn($user, $wallet, $bvn);
+            if (!$check['success']) {
+                return ApiResponse::error($check['message'], ['needs_bvn' => true], 422);
+            }
+            if ($check['kyc']) {
+                $wallet->update($check['kyc']);
+            }
+        }
+
         $vendor->update($data + ['account_name' => $resolved['account_name']]);
 
-        // Payouts that failed for lack of a bank account can go through now.
+        // Payouts held back for a missing bank account or BVN can go through now.
         $marketplace = app(\App\Services\MarketplaceService::class);
         $vendor->orders()->where('status', 'completed')->where('payout_status', 'failed')->get()
             ->each(fn ($order) => $marketplace->payVendor($order));
 
-        return ApiResponse::success('Bank account saved: ' . $resolved['account_name'], $vendor->fresh());
+        $vendor = $vendor->fresh();
+        $vendor->setAttribute('identity', $vendor->identity());
+
+        return ApiResponse::success('Bank account saved: ' . $resolved['account_name'], $vendor);
     }
 
     private function validateProfile(Request $request, bool $logoRequired): array
