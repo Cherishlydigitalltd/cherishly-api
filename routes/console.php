@@ -32,3 +32,9 @@ Schedule::call(fn () => app(\App\Services\MarketplaceService::class)->autoComple
 
 // Delete sign-in tokens that expired more than a day ago.
 Schedule::command('sanctum:prune-expired --hours=24')->daily()->name('prune-expired-tokens');
+
+// Nightly database backup and wallet check. Each runs hourly between 01:00
+// and 05:00 UTC (2–6am Lagos) but only does its work once a day, so one
+// missed cron ping doesn't skip a night. Backups first, then the check.
+Schedule::command('db:backup')->hourlyAt(0)->between('01:00', '05:00')->name('database-backup')->withoutOverlapping(30);
+Schedule::command('wallets:check')->hourlyAt(0)->between('02:00', '05:00')->name('wallet-check')->withoutOverlapping(30);

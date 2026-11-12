@@ -188,8 +188,11 @@ class MonetaryService
                 // Credit owner's wallet
                 $wallet = $owner->wallet;
                 if ($wallet) {
+                    // Same as gift contributions: counted in the balance now,
+                    // available to withdraw the next day (SettlePendingFunds).
                     $wallet->increment('balance', $creditAmount);
                     $wallet->increment('total_received', $creditAmount);
+                    $wallet->increment('pending_settlement', $creditAmount);
 
                     // Log transaction with fee breakdown
                     $wallet->transactions()->create([
@@ -202,6 +205,7 @@ class MonetaryService
                                 : ''),
                         'reference' => $reference,
                         'status' => 'successful',
+                        'available_at' => now()->addDay(), // T+1
                     ]);
 
                     // In-app notification
