@@ -49,6 +49,15 @@ class RateLimitServiceProvider extends ServiceProvider
                 ));
         });
 
+        // Digital spray. Keyed by the guest's spray token where there is one,
+        // because a whole venue can be on one Wi-Fi (one IP).
+        $sprayKey = fn (Request $request) => 'spray:' . ($request->header('X-Spray-Token') ?: $request->ip());
+        $tooMany = fn () => ApiResponse::error('Slow down a little and try again.', null, 429);
+        RateLimiter::for('spray', fn (Request $request) => Limit::perMinute(240)->by($sprayKey($request))->response($tooMany));
+        RateLimiter::for('spray-topup', fn (Request $request) => Limit::perMinute(10)->by($sprayKey($request))->response($tooMany));
+        RateLimiter::for('spray-join', fn (Request $request) => Limit::perMinute(60)->by('spray-join:' . $request->ip())->response($tooMany));
+        RateLimiter::for('spray-screen', fn (Request $request) => Limit::perMinute(300)->by('spray-screen:' . $request->ip())->response($tooMany));
+
         // Contributions — 10 per minute per IP
         RateLimiter::for('contribution', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip())

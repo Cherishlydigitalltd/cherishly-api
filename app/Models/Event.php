@@ -18,6 +18,7 @@ class Event extends Model
         'gallery', 'hashtag', 'livestream_url', 'contact_name', 'contact_phone',
         'aso_ebi_url', 'aso_ebi_note', 'hidden_sections',
         'dress_code', 'colours', 'accent_color', 'rsvp_mode', 'invitation_id',
+        'spray_enabled', 'spray_code', 'spray_show_total', 'spray_show_leaders', 'spray_ended_at',
     ];
 
     protected $casts = [
@@ -30,6 +31,10 @@ class Event extends Model
         'hidden_sections' => 'array',
         'map_lat'    => 'float',
         'map_lng'    => 'float',
+        'spray_enabled' => 'boolean',
+        'spray_show_total' => 'boolean',
+        'spray_show_leaders' => 'boolean',
+        'spray_ended_at' => 'datetime',
     ];
 
     protected $appends = ['page_url'];
@@ -53,6 +58,11 @@ class Event extends Model
     public function registries() { return $this->hasMany(GiftRegistry::class); }
     public function monetaryGifts() { return $this->hasMany(MonetaryGift::class); }
     public function walls() { return $this->hasMany(MemoryWall::class); }
+
+    /* Digital spray */
+    public function sprayGuests() { return $this->hasMany(SprayGuest::class); }
+    public function sprayTopups() { return $this->hasMany(SprayTopup::class); }
+    public function sprays() { return $this->hasMany(Spray::class); }
 
     public function getPageUrlAttribute(): ?string
     {

@@ -144,6 +144,10 @@ class WebhookController extends Controller
     private function handleMonetaryContribution(string $reference, string $status, array $meta): bool
     {
         try {
+            // Spray top-ups use the monetary type at the gateway.
+            if (str_starts_with($reference, 'CHR_SPR_')) {
+                return app(\App\Services\SprayService::class)->confirmTopup($reference, $status, $meta);
+            }
             return $this->monetaryService->confirmPayment($reference, $status, $meta);
         } catch (\Exception $e) {
             Log::error('Webhook: monetary contribution failed', ['reference' => $reference, 'error' => $e->getMessage()]);

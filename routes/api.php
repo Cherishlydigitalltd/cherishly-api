@@ -103,6 +103,18 @@ Route::prefix('public')->group(function () {
     Route::post('invitations/{token}/rsvp/{guestCode}', [InvitationController::class, 'rsvp'])
         ->middleware('throttle:30,1');
 
+    // Digital spray (cherishlyng.com/s/<code>). Limited per guest, not per
+    // IP: a whole venue can share one Wi-Fi.
+    Route::prefix('spray/{code}')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SprayController::class, 'show'])->middleware('throttle:spray-screen');
+        Route::get('screen', [\App\Http\Controllers\SprayController::class, 'screen'])->middleware('throttle:spray-screen');
+        Route::post('join', [\App\Http\Controllers\SprayController::class, 'join'])->middleware('throttle:spray-join');
+        Route::get('me', [\App\Http\Controllers\SprayController::class, 'me'])->middleware('throttle:spray');
+        Route::put('me', [\App\Http\Controllers\SprayController::class, 'updateMe'])->middleware('throttle:spray');
+        Route::post('topup', [\App\Http\Controllers\SprayController::class, 'topup'])->middleware('throttle:spray-topup');
+        Route::post('spray', [\App\Http\Controllers\SprayController::class, 'sprayNotes'])->middleware('throttle:spray');
+    });
+
     // Memory Walls
     Route::get('walls/{token}', [MemoryWallController::class, 'publicShow']);
     Route::get('walls/{token}/wishes', [MemoryWallController::class, 'publicWishes']);
@@ -253,6 +265,10 @@ Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->group(function () {
         Route::post('/{event}/checkin-qr', [EventController::class, 'checkInByQr']);
         Route::get('/{event}/attendance', [EventController::class, 'attendance']);
         Route::post('/{event}/send-invitations', [EventController::class, 'sendInvitations']);
+        Route::get('/{event}/spray', [\App\Http\Controllers\SprayController::class, 'hostShow']);
+        Route::put('/{event}/spray', [\App\Http\Controllers\SprayController::class, 'hostUpdate']);
+        Route::post('/{event}/spray/end', [\App\Http\Controllers\SprayController::class, 'hostEnd']);
+        Route::put('/{event}/spray/guests/{guest}/message', [\App\Http\Controllers\SprayController::class, 'hostHideMessage']);
     });
 
     // Memory Walls
@@ -363,6 +379,9 @@ Route::prefix('admin')->group(function () {
         Route::delete('monetary/{monetaryGift}', [AdminMonetaryController::class, 'destroy']);
 
 
+        Route::get('spray/topups', [\App\Http\Controllers\Admin\AdminSprayController::class, 'topups']);
+        Route::get('settings/spray', [\App\Http\Controllers\Admin\AdminSprayController::class, 'settings']);
+        Route::put('settings/spray', [\App\Http\Controllers\Admin\AdminSprayController::class, 'updateSettings']);
         Route::get('settings/fee-rate', [AdminDashboardController::class, 'getGlobalFeeRate']);
         Route::put('settings/fee-rate', [AdminDashboardController::class, 'updateGlobalFeeRate']);
         Route::put('users/{user}/fee-rate', [AdminUserController::class, 'updateFeeRate']);

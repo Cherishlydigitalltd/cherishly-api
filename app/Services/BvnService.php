@@ -8,14 +8,36 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Checks a BVN with Scapa (thirdparty.scapa.io, POST /api/ScapaMiddleware/verify_bvn)
- * and confirms it belongs to the Cherishly user.
+ * and confirms it belongs to the person: a Cherishly user, or someone who
+ * typed their legal name (big sprayers).
  */
 class BvnService
 {
     /**
+     * Check a BVN belongs to this Cherishly user.
+     *
      * @return array{success: bool, message?: string, identity?: array}
      */
     public function verify(User $user, string $bvn): array
+    {
+        return $this->check($bvn, (string) $user->first_name, (string) $user->last_name,
+            (string) ($user->phone ?: ''), ['user_id' => $user->id],
+            'The name on this BVN doesn’t match the name on your Cherishly account.');
+    }
+
+    /**
+     * Check a BVN belongs to someone without a Cherishly account (e.g. a big
+     * sprayer), by the legal name they typed.
+     *
+     * @return array{success: bool, message?: string, identity?: array}
+     */
+    public function verifyName(string $bvn, string $firstName, string $lastName, array $logContext = []): array
+    {
+        return $this->check($bvn, $firstName, $lastName, '', $logContext,
+            'The name on this BVN doesn’t match the name you entered. Use your name exactly as it is on your BVN.');
+    }
+
+    private function check(string $bvn, string $firstName, string $lastName, string $phone, array $log, string $mismatch): array
     {
         $url = rtrim((string) config('services.scapa.url'), '/');
         $key = (string) config('services.scapa.api_key');
@@ -30,7 +52,7 @@ class BvnService
                 ->post($url . '/api/ScapaMiddleware/verify_bvn', [
                     'client_id' => (string) config('services.scapa.client_id'),
                     'bvn_number' => $bvn,
-                    'phone_number' => $user->phone ?: '',
+                    'phone_number' => $phone,
                 ]);
         } catch (\Throwable $e) {
             report($e);
@@ -42,8 +64,7 @@ class BvnService
 
         if (!$response->successful() || empty($body['status']) || !is_array($data)
             || strtoupper((string) ($data['verificationStatus'] ?? '')) !== 'VERIFIED') {
-            Log::warning('BVN not verified', [
-                'user_id' => $user->id,
+            Log::warning('BVN not verified', $log + [
                 'http' => $response->status(),
                 'message' => $body['statusMessage'] ?? null,
             ]);
@@ -51,14 +72,14 @@ class BvnService
         }
 
         if (strtoupper((string) ($data['watchlisted'] ?? 'NO')) !== 'NO') {
-            Log::warning('BVN is watchlisted', ['user_id' => $user->id, 'reference' => $data['requestReference'] ?? null]);
+            Log::warning('BVN is watchlisted', $log + ['reference' => $data['requestReference'] ?? null]);
             return ['success' => false, 'message' => 'We couldn’t complete your verification. Please contact support@cherishlyng.com.'];
         }
 
         $info = $data['personalInfo'] ?? [];
-        if (!$this->namesMatch($user, $info)) {
-            Log::warning('BVN name mismatch', ['user_id' => $user->id, 'reference' => $data['requestReference'] ?? null]);
-            return ['success' => false, 'message' => 'The name on this BVN doesn’t match the name on your Cherishly account.'];
+        if (!$this->namesMatch($firstName, $lastName, $info)) {
+            Log::warning('BVN name mismatch', $log + ['reference' => $data['requestReference'] ?? null]);
+            return ['success' => false, 'message' => $mismatch];
         }
 
         $home = $data['residentialInfo'] ?? [];
@@ -79,8 +100,8 @@ class BvnService
         return hash_hmac('sha256', $bvn, (string) config('app.key'));
     }
 
-    /** The user's first and last name must both appear among the BVN's names, in any order. */
-    private function namesMatch(User $user, array $info): bool
+    /** The first and last name must both appear among the BVN's names, in any order. */
+    private function namesMatch(string $firstName, string $lastName, array $info): bool
     {
         $words = fn (?string $s) => array_filter(preg_split('/[^A-Z]+/', strtoupper((string) $s)));
         $bvnNames = array_merge(
@@ -89,8 +110,8 @@ class BvnService
             $words($info['lastName'] ?? null),
             $words($info['fullName'] ?? null),
         );
-        $first = $words($user->first_name);
-        $last = $words($user->last_name);
+        $first = $words($firstName);
+        $last = $words($lastName);
 
         return $first && $last
             && array_intersect($first, $bvnNames)
