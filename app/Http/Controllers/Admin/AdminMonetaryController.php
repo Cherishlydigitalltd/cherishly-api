@@ -28,7 +28,7 @@ class AdminMonetaryController extends Controller
         $monetaryGift->load([
             'user:id,first_name,last_name,email',
             'successfulContributions' => function ($q) {
-                $q->select(['id', 'monetary_gift_id', 'donor_name', 'donor_email', 'amount', 'is_anonymous', 'payment_reference', 'created_at'])
+                $q->select(['id', 'monetary_gift_id', 'donor_name', 'donor_email', 'amount', 'is_anonymous', 'payment_reference', 'bvn_last4', 'bvn_full_name', 'bvn_verified_at', 'created_at'])
                     ->latest();
             }
         ]);

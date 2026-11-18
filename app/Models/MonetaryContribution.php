@@ -16,6 +16,11 @@ class MonetaryContribution extends Model
         'donor_phone',
         'amount',
         'bvn',
+        'bvn_hash',
+        'bvn_last4',
+        'bvn_full_name',
+        'bvn_reference',
+        'bvn_verified_at',
         'payment_method',
         'payment_reference',
         'payment_status',
@@ -28,7 +33,11 @@ class MonetaryContribution extends Model
         'fee_bearer',
     ];
 
+    /** BVN data never leaves the API whole; admins see bvn_last4 and bvn_full_name. */
+    protected $hidden = ['bvn', 'bvn_hash'];
+
     protected $casts = [
+        'bvn_verified_at' => 'datetime',
         'amount' => 'decimal:2',
         'is_anonymous' => 'boolean',
         'payment_meta' => 'array',

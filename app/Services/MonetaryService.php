@@ -115,7 +115,7 @@ class MonetaryService
                 'fee_amount' => $fee['fee_amount'],
                 'fee_rate' => $fee['fee_rate'],
                 'fee_bearer' => $fee['fee_bearer'],
-                'bvn' => $data['bvn'] ?? null,
+                ...($data['bvn_identity'] ?? []), // verified BVN check; the BVN itself isn't stored
                 'payment_method' => $data['payment_method'],
                 'payment_status' => 'pending',
                 'payment_reference' => $reference,

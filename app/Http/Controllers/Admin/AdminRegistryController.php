@@ -35,7 +35,7 @@ class AdminRegistryController extends Controller
                 $q->with([
                     'contributions' => function ($q) {
                         $q->where('payment_status', 'successful')
-                            ->select(['id', 'gift_id', 'donor_name', 'donor_email', 'donor_phone', 'amount', 'is_anonymous', 'payment_reference', 'created_at'])
+                            ->select(['id', 'gift_id', 'donor_name', 'donor_email', 'donor_phone', 'amount', 'is_anonymous', 'payment_reference', 'bvn_last4', 'bvn_full_name', 'bvn_verified_at', 'created_at'])
                             ->latest();
                     }
                 ]);

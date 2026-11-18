@@ -15,7 +15,9 @@ class ContributeMonetaryRequest extends FormRequest
             'donor_email'    => ['required', 'email'],
             'donor_phone'    => ['nullable', 'string', 'max:20'],
             'amount'         => ['required', 'numeric', 'min:100'],
-            'bvn'            => ['nullable', 'string', 'size:11'],
+            'bvn'            => ['nullable', 'digits:11'],
+            'bvn_first_name' => ['nullable', 'string', 'max:60'],
+            'bvn_last_name'  => ['nullable', 'string', 'max:60'],
             'payment_method' => ['required', 'in:paystack,bank_transfer'],
             'is_anonymous'   => ['nullable', 'boolean'],
         ];
@@ -25,7 +27,7 @@ class ContributeMonetaryRequest extends FormRequest
     {
         return [
             'amount.min' => 'Minimum contribution is ₦100.',
-            'bvn.size'   => 'BVN must be exactly 11 digits.',
+            'bvn.digits'   => 'BVN must be exactly 11 digits.',
         ];
     }
 }

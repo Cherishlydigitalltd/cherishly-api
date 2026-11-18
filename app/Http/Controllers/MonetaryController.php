@@ -104,6 +104,7 @@ class MonetaryController extends Controller
             $gift->setAttribute('fee_rate', $this->feeService->getRate($gift->user));
             $gift->setAttribute('fee_bearer', $gift->user->fee_bearer ?? 'gifter');
         }
+        $gift->setAttribute('bvn_threshold', app(\App\Services\ContributionBvnService::class)->threshold());
 
         return ApiResponse::success('Monetary gift retrieved.', $gift);
     }
@@ -119,14 +120,14 @@ class MonetaryController extends Controller
             return ApiResponse::notFound('Monetary gift not found or is no longer active.');
         }
 
-        if ($request->amount > 5000000 && empty($request->bvn)) {
-            return ApiResponse::validationError([
-                'bvn' => ['BVN is required for contributions above ₦5,000,000.']
-            ]);
-        }
+        // Large gifts need a verified BVN (limit set in the admin).
+        $bvn = app(\App\Services\ContributionBvnService::class)->check(
+            (float) $request->amount, $gift->contributions()->getQuery(), $request->validated(),
+            ['monetary_gift_id' => $gift->id],
+        );
 
         try {
-            $result = $this->monetaryService->contribute($gift, $request->validated());
+            $result = $this->monetaryService->contribute($gift, ['bvn_identity' => $bvn] + $request->validated());
             return ApiResponse::success('Contribution initiated. Complete payment to confirm.', $result, 201);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), null, 500);

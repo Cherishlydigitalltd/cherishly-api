@@ -196,6 +196,7 @@ class GiftRegistryController extends Controller
             $registry->setAttribute('fee_rate', $this->feeService->getRate($owner));
             $registry->setAttribute('fee_bearer', $owner->fee_bearer ?? 'gifter');
         }
+        $registry->setAttribute('bvn_threshold', app(\App\Services\ContributionBvnService::class)->threshold());
 
         return ApiResponse::success('Registry retrieved.', $registry);
     }
@@ -216,14 +217,14 @@ class GiftRegistryController extends Controller
             return ApiResponse::error('Gift does not belong to this registry.');
         }
 
-        if ($request->amount > 5000000 && empty($request->bvn)) {
-            return ApiResponse::error('BVN is required for contributions above ₦5,000,000.', [
-                'bvn' => ['BVN is required for amounts above ₦5,000,000.']
-            ], 422);
-        }
+        // Large gifts need a verified BVN (limit set in the admin).
+        $bvn = app(\App\Services\ContributionBvnService::class)->check(
+            (float) $request->amount, $gift->contributions()->getQuery(), $request->validated(),
+            ['gift_id' => $gift->id],
+        );
 
         try {
-            $result = $this->registryService->contribute($gift, $request->validated());
+            $result = $this->registryService->contribute($gift, ['bvn_identity' => $bvn] + $request->validated());
 
             return ApiResponse::success('Contribution initiated. Complete payment to confirm.', $result, 201);
         } catch (\RuntimeException $e) {

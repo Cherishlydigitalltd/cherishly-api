@@ -380,6 +380,8 @@ Route::prefix('admin')->group(function () {
 
 
         Route::get('spray/topups', [\App\Http\Controllers\Admin\AdminSprayController::class, 'topups']);
+        Route::get('settings/contribution-bvn', [\App\Http\Controllers\Admin\AdminBvnSettingsController::class, 'show']);
+        Route::put('settings/contribution-bvn', [\App\Http\Controllers\Admin\AdminBvnSettingsController::class, 'update']);
         Route::get('settings/spray', [\App\Http\Controllers\Admin\AdminSprayController::class, 'settings']);
         Route::put('settings/spray', [\App\Http\Controllers\Admin\AdminSprayController::class, 'updateSettings']);
         Route::get('settings/fee-rate', [AdminDashboardController::class, 'getGlobalFeeRate']);
