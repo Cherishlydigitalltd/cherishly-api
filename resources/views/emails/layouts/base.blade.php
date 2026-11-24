@@ -299,7 +299,7 @@
             <a href="https://twitter.com/cherishly" class="social-link" target="_blank">
               <img src="https://cdn-icons-png.flaticon.com/512/733/733579.png" alt="Twitter" />
             </a>
-            <a href="https://instagram.com/cherishly" class="social-link" target="_blank">
+            <a href="https://www.instagram.com/usecherishly/" class="social-link" target="_blank">
               <img src="https://cdn-icons-png.flaticon.com/512/733/733558.png" alt="Instagram" />
             </a>
           </div>
