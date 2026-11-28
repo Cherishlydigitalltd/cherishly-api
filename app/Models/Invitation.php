@@ -20,12 +20,20 @@ class Invitation extends Model
         'rsvp_deadline',
         'scheduled_at',
         'sent_at',
+        'door_code',
+        'door_enabled',
+        'track_souvenirs',
     ];
+
+    /** The ushers' door link is only ever shown to the host, by the check-in page. */
+    protected $hidden = ['door_code'];
 
     protected $casts = [
         'rsvp_deadline' => 'datetime',
         'scheduled_at'  => 'datetime',
         'sent_at'       => 'datetime',
+        'door_enabled'  => 'boolean',
+        'track_souvenirs' => 'boolean',
     ];
 
     protected $appends = ['public_url', 'stats', 'is_sent'];

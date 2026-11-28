@@ -100,6 +100,16 @@ Route::prefix('public')->group(function () {
     // Invitations
     Route::get('invitations/{token}', [InvitationController::class, 'publicShow']);
     Route::get('invitations/guest/{qrToken}', [InvitationController::class, 'guestByQr']);
+
+    // QR check-in: a guest's pass, and the ushers' door link (/door/<code>).
+    Route::get('passes/{qrToken}', [\App\Http\Controllers\CheckInController::class, 'pass'])->middleware('throttle:pass');
+    Route::prefix('door/{code}')->middleware('throttle:door')->group(function () {
+        Route::get('/', [\App\Http\Controllers\CheckInController::class, 'door']);
+        Route::post('scan', [\App\Http\Controllers\CheckInController::class, 'scan']);
+        Route::get('search', [\App\Http\Controllers\CheckInController::class, 'doorSearch']);
+        Route::post('guests/{qrToken}/check-in', [\App\Http\Controllers\CheckInController::class, 'doorCheckIn']);
+        Route::post('guests/{qrToken}/souvenirs', [\App\Http\Controllers\CheckInController::class, 'doorSouvenirs']);
+    });
     Route::post('invitations/{token}/rsvp/{guestCode}', [InvitationController::class, 'rsvp'])
         ->middleware('throttle:30,1');
 
@@ -228,6 +238,10 @@ Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->group(function () {
         Route::post('/{invitation}/checkin-qr', [InvitationController::class, 'checkInByQr']);
         Route::post('/{invitation}/send', [InvitationController::class, 'send']);
         Route::get('/{invitation}/attendance', [InvitationController::class, 'attendance']);
+        Route::get('/{invitation}/checkin', [\App\Http\Controllers\CheckInController::class, 'show']);
+        Route::put('/{invitation}/checkin', [\App\Http\Controllers\CheckInController::class, 'update']);
+        Route::get('/{invitation}/seating', [\App\Http\Controllers\CheckInController::class, 'seating']);
+        Route::put('/{invitation}/guests/{guest}/seat', [\App\Http\Controllers\CheckInController::class, 'seat']);
     });
 
     // Secret Santa

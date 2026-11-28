@@ -99,7 +99,7 @@ class EventPageController extends Controller
                 // Their own pass, so a guest who gave only a phone number
                 // still has something to show at the door.
                 'pass_url' => $guest->rsvp_status === 'attending'
-                    ? config('app.frontend_url') . '/rsvp/' . $invitation->share_token . '?guest=' . $guest->rsvp_token
+                    ? \App\Services\CheckInService::passUrl($guest)
                     : null,
             ]
         );

@@ -56,6 +56,10 @@ class RateLimitServiceProvider extends ServiceProvider
         RateLimiter::for('spray', fn (Request $request) => Limit::perMinute(240)->by($sprayKey($request))->response($tooMany));
         RateLimiter::for('spray-topup', fn (Request $request) => Limit::perMinute(10)->by($sprayKey($request))->response($tooMany));
         RateLimiter::for('spray-join', fn (Request $request) => Limit::perMinute(60)->by('spray-join:' . $request->ip())->response($tooMany));
+        // QR check-in: ushers share one venue connection, so key on the door code too.
+        RateLimiter::for('door', fn (Request $request) => Limit::perMinute(240)->by('door:' . $request->route('code') . ':' . $request->ip())->response($tooMany));
+        RateLimiter::for('pass', fn (Request $request) => Limit::perMinute(60)->by('pass:' . $request->ip())->response($tooMany));
+
         RateLimiter::for('spray-screen', fn (Request $request) => Limit::perMinute(300)->by('spray-screen:' . $request->ip())->response($tooMany));
 
         // Contributions — 10 per minute per IP

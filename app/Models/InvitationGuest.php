@@ -23,6 +23,11 @@ class InvitationGuest extends Model
         'rsvp_responded_at',
         'qr_token',
         'rsvp_token',
+        'table_label',
+        'party_size',
+        'checked_in_by',
+        'souvenirs_at',
+        'souvenirs_by',
     ];
 
     protected $casts = [
@@ -31,6 +36,8 @@ class InvitationGuest extends Model
         'checked_in'         => 'boolean',
         'checked_in_at'      => 'datetime',
         'rsvp_responded_at'  => 'datetime',
+        'souvenirs_at'       => 'datetime',
+        'party_size'         => 'integer',
     ];
 
     /* ── Boot ── */

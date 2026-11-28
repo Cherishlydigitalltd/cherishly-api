@@ -281,6 +281,7 @@ class InvitationService
         $guest->update([
             'checked_in' => true,
             'checked_in_at' => now(),
+            'checked_in_by' => $guest->checked_in_by ?? 'Host',
         ]);
 
         return $guest->fresh();
