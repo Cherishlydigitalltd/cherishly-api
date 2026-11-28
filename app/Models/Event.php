@@ -19,6 +19,8 @@ class Event extends Model
         'aso_ebi_url', 'aso_ebi_note', 'hidden_sections',
         'dress_code', 'colours', 'accent_color', 'rsvp_mode', 'invitation_id',
         'spray_enabled', 'spray_code', 'spray_show_total', 'spray_show_leaders', 'spray_ended_at',
+        'asoebi_enabled', 'asoebi_code', 'asoebi_deadline', 'asoebi_colours', 'asoebi_pickup_note',
+        'asoebi_delivery_fee', 'asoebi_handout_enabled', 'asoebi_handout_code',
     ];
 
     protected $casts = [
@@ -35,9 +37,16 @@ class Event extends Model
         'spray_show_total' => 'boolean',
         'spray_show_leaders' => 'boolean',
         'spray_ended_at' => 'datetime',
+        'asoebi_enabled' => 'boolean',
+        'asoebi_deadline' => 'datetime',
+        'asoebi_delivery_fee' => 'decimal:2',
+        'asoebi_handout_enabled' => 'boolean',
     ];
 
     protected $appends = ['page_url'];
+
+    /** Helpers' aso-ebi handout link: only the host's aso-ebi page shows it. */
+    protected $hidden = ['asoebi_handout_code'];
 
     /** Words an event page can't be called, so /e/<slug> stays unambiguous. */
     public const TYPES = ['wedding', 'birthday', 'naming', 'anniversary', 'graduation', 'housewarming', 'burial', 'other'];
@@ -85,4 +94,7 @@ class Event extends Model
     {
         return config('app.frontend_url') . '/event/' . $this->share_token;
     }
+
+    public function asoebiPackages() { return $this->hasMany(AsoebiPackage::class)->orderBy('sort')->orderBy('id'); }
+    public function asoebiOrders() { return $this->hasMany(AsoebiOrder::class); }
 }

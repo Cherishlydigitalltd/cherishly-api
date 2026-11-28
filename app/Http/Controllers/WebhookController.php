@@ -148,6 +148,9 @@ class WebhookController extends Controller
             if (str_starts_with($reference, 'CHR_SPR_')) {
                 return app(\App\Services\SprayService::class)->confirmTopup($reference, $status, $meta);
             }
+            if (str_starts_with($reference, 'CHR_ASO_')) {
+                return app(\App\Services\AsoebiService::class)->confirmOrder($reference, $status, $meta);
+            }
             return $this->monetaryService->confirmPayment($reference, $status, $meta);
         } catch (\Exception $e) {
             Log::error('Webhook: monetary contribution failed', ['reference' => $reference, 'error' => $e->getMessage()]);

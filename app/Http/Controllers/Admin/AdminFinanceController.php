@@ -133,7 +133,7 @@ class AdminFinanceController extends Controller
         $request->validate([
             'type' => ['nullable', 'in:credit,debit'],
             'status' => ['nullable', 'in:pending,successful,failed'],
-            'kind' => ['nullable', 'in:withdrawal,gift,cash,vendor,spray'],
+            'kind' => ['nullable', 'in:withdrawal,gift,cash,vendor,spray,asoebi'],
             'wallet_id' => ['nullable', 'integer'],
             'user_id' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
@@ -155,6 +155,7 @@ class AdminFinanceController extends Controller
             'cash' => $query->where('reference', 'like', 'CHR\_MON\_%'),
             'vendor' => $query->where('reference', 'like', 'VPO-%'),
             'spray' => $query->where('reference', 'like', 'CHR\_SPR\_%'),
+            'asoebi' => $query->where('reference', 'like', 'CHR\_ASO\_%'),
             default => null,
         };
 

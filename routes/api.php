@@ -103,6 +103,17 @@ Route::prefix('public')->group(function () {
 
     // QR check-in: a guest's pass, and the ushers' door link (/door/<code>).
     Route::get('passes/{qrToken}', [\App\Http\Controllers\CheckInController::class, 'pass'])->middleware('throttle:pass');
+    // Aso-ebi: buyers (/a/<code>), their order page, and helpers' handout link.
+    Route::get('asoebi/{code}', [\App\Http\Controllers\AsoebiController::class, 'shop'])->middleware('throttle:spray-screen');
+    Route::post('asoebi/{code}/orders', [\App\Http\Controllers\AsoebiController::class, 'order'])->middleware('throttle:contribution');
+    Route::get('asoebi-orders/{token}', [\App\Http\Controllers\AsoebiController::class, 'showOrder'])->middleware('throttle:pass');
+    Route::prefix('asoebi-handout/{code}')->middleware('throttle:door')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AsoebiController::class, 'handout']);
+        Route::post('scan', [\App\Http\Controllers\AsoebiController::class, 'handoutScan']);
+        Route::get('search', [\App\Http\Controllers\AsoebiController::class, 'handoutSearch']);
+        Route::post('orders/{token}/hand-over', [\App\Http\Controllers\AsoebiController::class, 'handoutGive']);
+    });
+
     Route::prefix('door/{code}')->middleware('throttle:door')->group(function () {
         Route::get('/', [\App\Http\Controllers\CheckInController::class, 'door']);
         Route::post('scan', [\App\Http\Controllers\CheckInController::class, 'scan']);
@@ -282,6 +293,14 @@ Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->group(function () {
         Route::get('/{event}/spray', [\App\Http\Controllers\SprayController::class, 'hostShow']);
         Route::put('/{event}/spray', [\App\Http\Controllers\SprayController::class, 'hostUpdate']);
         Route::post('/{event}/spray/end', [\App\Http\Controllers\SprayController::class, 'hostEnd']);
+        Route::get('/{event}/asoebi', [\App\Http\Controllers\AsoebiController::class, 'hostShow']);
+        Route::put('/{event}/asoebi', [\App\Http\Controllers\AsoebiController::class, 'hostUpdate']);
+        Route::post('/{event}/asoebi/packages', [\App\Http\Controllers\AsoebiController::class, 'packageStore']);
+        Route::put('/{event}/asoebi/packages/{package}', [\App\Http\Controllers\AsoebiController::class, 'packageUpdate']);
+        Route::delete('/{event}/asoebi/packages/{package}', [\App\Http\Controllers\AsoebiController::class, 'packageDestroy']);
+        Route::post('/{event}/asoebi/orders/{order}/hand-over', [\App\Http\Controllers\AsoebiController::class, 'hostHandOver']);
+        Route::post('/{event}/asoebi/remind', [\App\Http\Controllers\AsoebiController::class, 'remind']);
+        Route::get('/{event}/asoebi/export', [\App\Http\Controllers\AsoebiController::class, 'export']);
         Route::put('/{event}/spray/guests/{guest}/message', [\App\Http\Controllers\SprayController::class, 'hostHideMessage']);
     });
 

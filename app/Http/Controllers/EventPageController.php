@@ -413,10 +413,7 @@ class EventPageController extends Controller
                 // wa.me needs the number in international form, digits only.
                 'whatsapp' => 'https://wa.me/' . $this->intlPhone($event->contact_phone),
             ] : null,
-            'aso_ebi' => $event->aso_ebi_url || $event->aso_ebi_note ? [
-                'url' => $event->aso_ebi_url,
-                'note' => $event->aso_ebi_note,
-            ] : null,
+            'aso_ebi' => $this->asoEbi($event),
             'hidden_sections' => $event->hidden_sections ?? [],
             'cover_photo' => $event->cover_photo,
             'event_date' => $event->event_date?->toDateString(),
@@ -470,5 +467,19 @@ class EventPageController extends Controller
         }
 
         return $page;
+    }
+
+    /** The event page's aso-ebi section: Cherishly's own order link while it's open, else the host's link. */
+    private function asoEbi(Event $event): ?array
+    {
+        $asoebi = app(\App\Services\AsoebiService::class);
+        if ($asoebi->isOpen($event)) {
+            return [
+                'url' => $asoebi->shopUrl($event),
+                'note' => $event->aso_ebi_note ?: ($event->asoebi_colours ? 'Colours: ' . $event->asoebi_colours : null),
+            ];
+        }
+
+        return $event->aso_ebi_url || $event->aso_ebi_note ? ['url' => $event->aso_ebi_url, 'note' => $event->aso_ebi_note] : null;
     }
 }
